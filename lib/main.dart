@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'screens/ai_chat_screen.dart';
+import 'screens/quran_list_screen.dart';
+import 'services/api_service.dart';
 
 void main() {
   runApp(const BekalDakwahApp());
@@ -15,14 +18,49 @@ class BekalDakwahApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0D7377), // Deep Teal (Ilmu & Ketenangan)
+          seedColor: const Color(0xFF0D7377),
           primary: const Color(0xFF0D7377),
-          secondary: const Color(0xFFD4A843), // Warm Gold (Kemuliaan Ilmu)
+          secondary: const Color(0xFFD4A843),
         ),
         textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme),
         useMaterial3: true,
       ),
-      home: const HomeScreen(),
+      home: const MainNavigationScreen(),
+    );
+  }
+}
+
+class MainNavigationScreen extends StatefulWidget {
+  const MainNavigationScreen({super.key});
+
+  @override
+  State<MainNavigationScreen> createState() => _MainNavigationScreenState();
+}
+
+class _MainNavigationScreenState extends State<MainNavigationScreen> {
+  int _selectedIndex = 0;
+
+  final List<Widget> _screens = const [
+    HomeScreen(),
+    QuranListScreen(),
+    AIChatScreen(),
+    PlaceholderScreen(title: 'Catatan & Materi Dakwah'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _screens[_selectedIndex],
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (idx) => setState(() => _selectedIndex = idx),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Beranda'),
+          NavigationDestination(icon: Icon(Icons.menu_book_outlined), selectedIcon: Icon(Icons.menu_book), label: "Al-Qur'an"),
+          NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), selectedIcon: Icon(Icons.auto_awesome), label: 'Asisten AI'),
+          NavigationDestination(icon: Icon(Icons.bookmark_outline), selectedIcon: Icon(Icons.bookmark), label: 'Catatan'),
+        ],
+      ),
     );
   }
 }
@@ -35,10 +73,30 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0;
+  Map<String, dynamic>? _prayerData;
+  bool _loadingPrayer = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrayerTimes();
+  }
+
+  void _loadPrayerTimes() async {
+    final data = await ApiService.getPrayerTimes();
+    if (mounted) {
+      setState(() {
+        _prayerData = data;
+        _loadingPrayer = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final timings = _prayerData?['timings'];
+    final hijri = _prayerData?['date']?['hijri'];
+
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -54,14 +112,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none_rounded),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.account_circle_outlined),
-            onPressed: () {},
-          ),
+          IconButton(icon: const Icon(Icons.notifications_none_rounded), onPressed: () {}),
+          IconButton(icon: const Icon(Icons.account_circle_outlined), onPressed: () {}),
         ],
       ),
       body: SingleChildScrollView(
@@ -69,36 +121,42 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Salam & Penanggalan
+            // Salam & Penanggalan Hijriyah
             Text(
               "Assalamu'alaikum, Ustadz",
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+              style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600),
             ),
             Text(
-              'Pusat Bantuan & Referensi Ilmiah Ahlus Sunnah',
-              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              hijri != null
+                  ? '${hijri['day']} ${hijri['month']?['en']} ${hijri['year']} H'
+                  : 'Pusat Bantuan & Referensi Ilmiah Ahlus Sunnah',
+              style: TextStyle(color: Colors.grey[700], fontSize: 13, fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 16),
 
-            // Search Bar
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[300]!),
-              ),
-              child: const TextField(
-                decoration: InputDecoration(
-                  hintText: 'Cari dalil, hadits, kitab, atau fatwa...',
-                  prefixIcon: Icon(Icons.search, color: Color(0xFF0D7377)),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            // Card Jadwal Shalat
+            if (!_loadingPrayer && timings != null)
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.grey[200]!),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 6, offset: const Offset(0, 2)),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _prayerItem('Shubuh', timings['Fajr']),
+                    _prayerItem('Dzuhur', timings['Dhuhr']),
+                    _prayerItem('Ashar', timings['Asr']),
+                    _prayerItem('Maghrib', timings['Maghrib']),
+                    _prayerItem('Isya', timings['Isha']),
+                  ],
                 ),
               ),
-            ),
             const SizedBox(height: 20),
 
             // Banner AI Assistant
@@ -106,9 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF0D7377), Color(0xFF148F94)],
-                ),
+                gradient: const LinearGradient(colors: [Color(0xFF0D7377), Color(0xFF148F94)]),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -120,11 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(width: 8),
                       Text(
                         'Asisten AI Dakwah (Manhaj Salaf)',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
+                        style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
                       ),
                     ],
                   ),
@@ -138,11 +190,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFD4A843),
                       foregroundColor: Colors.black87,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const AIChatScreen()));
+                    },
                     icon: const Icon(Icons.chat_bubble_outline, size: 16),
                     label: const Text('Mulai Tanya AI', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
@@ -151,13 +203,10 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Menu Fitur Utama
+            // Akses Cepat
             Text(
               'Akses Cepat',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             GridView.count(
@@ -167,49 +216,49 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
               children: [
-                _buildMenuCard(Icons.menu_book_rounded, 'Maktabah\nShamela', Colors.teal),
-                _buildMenuCard(Icons.format_quote_rounded, 'Hadits &\nTakhrij', Colors.amber[800]!),
-                _buildMenuCard(Icons.gavel_rounded, 'Database\nFatwa', Colors.indigo),
-                _buildMenuCard(Icons.edit_note_rounded, 'Editor\nMateri', Colors.green[700]!),
-                _buildMenuCard(Icons.question_answer_rounded, 'Tanya Jawab\nJamaah', Colors.deepOrange),
-                _buildMenuCard(Icons.calendar_month_rounded, 'Jadwal\nKajian', Colors.purple),
+                _buildMenuCard(Icons.menu_book_rounded, "Al-Qur'an\n& Tafsir", Colors.teal, () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const QuranListScreen()));
+                }),
+                _buildMenuCard(Icons.auto_awesome, 'Tanya\nAI Dakwah', const Color(0xFFD4A843), () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AIChatScreen()));
+                }),
+                _buildMenuCard(Icons.format_quote_rounded, 'Hadits &\nTakhrij', Colors.amber[800]!, () {}),
+                _buildMenuCard(Icons.gavel_rounded, 'Database\nFatwa', Colors.indigo, () {}),
+                _buildMenuCard(Icons.edit_note_rounded, 'Editor\nMateri', Colors.green[700]!, () {}),
+                _buildMenuCard(Icons.calendar_month_rounded, 'Jadwal\nKajian', Colors.purple, () {}),
               ],
             ),
           ],
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (idx) => setState(() => _selectedIndex = idx),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Beranda'),
-          NavigationDestination(icon: Icon(Icons.library_books_outlined), selectedIcon: Icon(Icons.library_books), label: 'Maktabah'),
-          NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), selectedIcon: Icon(Icons.auto_awesome), label: 'Asisten AI'),
-          NavigationDestination(icon: Icon(Icons.bookmark_outline), selectedIcon: Icon(Icons.bookmark), label: 'Catatan'),
-        ],
-      ),
     );
   }
 
-  Widget _buildMenuCard(IconData icon, String title, Color color) {
+  Widget _prayerItem(String name, String? time) {
+    return Column(
+      children: [
+        Text(name, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        const SizedBox(height: 4),
+        Text(time ?? '--:--', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0D7377))),
+      ],
+    );
+  }
+
+  Widget _buildMenuCard(IconData icon, String title, Color color, VoidCallback onTap) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey[200]!),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () {},
+          onTap: onTap,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -227,6 +276,21 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class PlaceholderScreen extends StatelessWidget {
+  final String title;
+  const PlaceholderScreen({super.key, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(title)),
+      body: Center(
+        child: Text('$title (Segera Hadir)', style: const TextStyle(color: Colors.grey)),
       ),
     );
   }
