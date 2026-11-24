@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../services/api_service.dart';
 
 class HadithCategoriesScreen extends StatefulWidget {
@@ -49,11 +50,11 @@ class _HadithCategoriesScreenState extends State<HadithCategoriesScreen> {
                   child: ListTile(
                     leading: CircleAvatar(
                       backgroundColor: const Color(0xFFD4A843).withOpacity(0.15),
-                      child: const Icon(Icons.menu_book, color: Color(0xFFD4A843)),
+                      child: const Icon(LucideIcons.bookMarked, color: Color(0xFFD4A843), size: 20),
                     ),
                     title: Text(cat['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text('${cat['hadeeths_count']} Hadits Terverifikasi', style: const TextStyle(fontSize: 12)),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                    trailing: const Icon(LucideIcons.chevronRight, size: 16, color: Colors.grey),
                     onTap: () {
                       Navigator.push(
                         context,
@@ -82,22 +83,75 @@ class HadithListScreen extends StatefulWidget {
 
 class _HadithListScreenState extends State<HadithListScreen> {
   List<dynamic> _hadiths = [];
+  List<dynamic> _filteredHadiths = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  int _currentPage = 1;
+  int _lastPage = 1;
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _loadHadiths();
+    _loadInitialHadiths();
+    _scrollController.addListener(_onScroll);
   }
 
-  void _loadHadiths() async {
-    final list = await ApiService.getHadithList(widget.categoryId);
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoadingMore && _currentPage < _lastPage && _searchCtrl.text.isEmpty) {
+        _loadMoreHadiths();
+      }
+    }
+  }
+
+  void _loadInitialHadiths() async {
+    final result = await ApiService.getHadithListPaginated(widget.categoryId, page: 1, perPage: 30);
     if (mounted) {
       setState(() {
-        _hadiths = list;
+        _hadiths = result['data'] ?? [];
+        _filteredHadiths = _hadiths;
+        _lastPage = int.tryParse(result['meta']?['last_page']?.toString() ?? '1') ?? 1;
         _isLoading = false;
       });
     }
+  }
+
+  void _loadMoreHadiths() async {
+    setState(() => _isLoadingMore = true);
+    final nextPage = _currentPage + 1;
+    final result = await ApiService.getHadithListPaginated(widget.categoryId, page: nextPage, perPage: 30);
+    if (mounted) {
+      final newItems = result['data'] as List? ?? [];
+      setState(() {
+        _currentPage = nextPage;
+        _hadiths.addAll(newItems);
+        _filteredHadiths = _hadiths;
+        _isLoadingMore = false;
+      });
+    }
+  }
+
+  void _filterHadiths(String q) {
+    if (q.trim().isEmpty) {
+      setState(() => _filteredHadiths = _hadiths);
+      return;
+    }
+    final query = q.toLowerCase();
+    setState(() {
+      _filteredHadiths = _hadiths.where((h) {
+        final title = (h['title'] ?? '').toString().toLowerCase();
+        return title.contains(query);
+      }).toList();
+    });
   }
 
   @override
@@ -106,31 +160,79 @@ class _HadithListScreenState extends State<HadithListScreen> {
       appBar: AppBar(
         title: Text(widget.categoryTitle, style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold)),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF0D7377)))
-          : ListView.separated(
-              padding: const EdgeInsets.all(12),
-              itemCount: _hadiths.length,
-              separatorBuilder: (ctx, i) => const Divider(),
-              itemBuilder: (context, index) {
-                final item = _hadiths[index];
-                return ListTile(
-                  title: Text(
-                    item['title'] ?? '',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => HadithDetailScreen(hadithId: int.parse(item['id'])),
-                      ),
-                    );
-                  },
-                );
-              },
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
+            child: TextField(
+              controller: _searchCtrl,
+              decoration: InputDecoration(
+                hintText: 'Cari matan / kata kunci hadits...',
+                prefixIcon: const Icon(LucideIcons.search, size: 20, color: Color(0xFF0D7377)),
+                suffixIcon: _searchCtrl.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(LucideIcons.x, size: 18),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          _filterHadiths('');
+                        },
+                      )
+                    : null,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onChanged: _filterHadiths,
             ),
+          ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF0D7377)))
+                : _filteredHadiths.isEmpty
+                    ? const Center(child: Text('Hadits tidak ditemukan'))
+                    : ListView.separated(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(12),
+                        itemCount: _filteredHadiths.length + (_isLoadingMore ? 1 : 0),
+                        separatorBuilder: (ctx, i) => const Divider(),
+                        itemBuilder: (context, index) {
+                          if (index == _filteredHadiths.length) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16.0),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0D7377)),
+                                ),
+                              ),
+                            );
+                          }
+                          final item = _filteredHadiths[index];
+                          return ListTile(
+                            leading: CircleAvatar(
+                              radius: 14,
+                              backgroundColor: const Color(0xFF0D7377).withOpacity(0.1),
+                              child: Text('${index + 1}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0D7377))),
+                            ),
+                            title: Text(
+                              item['title'] ?? '',
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                            ),
+                            trailing: const Icon(LucideIcons.chevronRight, size: 18),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => HadithDetailScreen(hadithId: int.parse(item['id'])),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -180,26 +282,34 @@ class _HadithDetailScreenState extends State<HadithDetailScreen> {
                     children: [
                       // Badge Derajat / Takhrij
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
                           color: Colors.green[50],
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: Colors.green[300]!),
                         ),
-                        child: Text(
-                          'Derajat Hadits: ${_detail!['grade'] ?? 'Shahih'} • ${_detail!['attribution'] ?? ''}',
-                          style: TextStyle(color: Colors.green[800], fontWeight: FontWeight.bold, fontSize: 12),
+                        child: Row(
+                          children: [
+                            const Icon(LucideIcons.checkCircle2, color: Colors.green, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Derajat Hadits: ${_detail!['grade'] ?? 'Shahih'} • ${_detail!['attribution'] ?? ''}',
+                                style: TextStyle(color: Colors.green[900], fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 18),
 
                       // Matan Arab
                       Text(
                         _detail!['hadeeth_ar'] ?? '',
                         textAlign: TextAlign.right,
-                        style: GoogleFonts.amiri(fontSize: 22, height: 2.2, fontWeight: FontWeight.w600),
+                        style: GoogleFonts.amiri(fontSize: 23, height: 2.2, fontWeight: FontWeight.w600),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 18),
 
                       // Terjemahan & Sanad
                       Text(
@@ -211,9 +321,15 @@ class _HadithDetailScreenState extends State<HadithDetailScreen> {
                       // Penjelasan / Syarah Singkat
                       if (_detail!['explanation'] != null) ...[
                         const Divider(),
-                        Text(
-                          'Penjelasan & Faedah Hadits:',
-                          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF0D7377)),
+                        Row(
+                          children: [
+                            const Icon(LucideIcons.sparkles, color: Color(0xFF0D7377), size: 18),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Penjelasan & Faedah Hadits:',
+                              style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF0D7377)),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 8),
                         Text(

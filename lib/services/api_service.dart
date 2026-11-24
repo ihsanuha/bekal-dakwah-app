@@ -86,18 +86,21 @@ class ApiService {
     return [];
   }
 
-  /// Hadits List by Category
-  static Future<List<dynamic>> getHadithList(int categoryId) async {
+  /// Hadits List by Category dengan pagination (halaman 1 s/d selesai, per_page 50)
+  static Future<Map<String, dynamic>> getHadithListPaginated(int categoryId, {int page = 1, int perPage = 30}) async {
     try {
-      final res = await http.get(Uri.parse('${AppConfig.hadithList}?category_id=$categoryId'));
+      final res = await http.get(Uri.parse('${AppConfig.hadithList}?category_id=$categoryId&page=$page&per_page=$perPage'));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        return data['data'] ?? [];
+        return {
+          'data': data['data'] ?? [],
+          'meta': data['meta'] ?? {}
+        };
       }
     } catch (e) {
-      print('[ApiService] Error getHadithList: $e');
+      print('[ApiService] Error getHadithListPaginated: $e');
     }
-    return [];
+    return {'data': [], 'meta': {}};
   }
 
   /// Hadits Detail (Matan, Takhrij, Syarah)

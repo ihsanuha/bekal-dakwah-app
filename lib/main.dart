@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'screens/ai_chat_screen.dart';
 import 'screens/quran_list_screen.dart';
 import 'screens/hadith_screens.dart';
 import 'screens/fatwa_list_screen.dart';
-import 'screens/material_editor_screen.dart';
+import 'screens/material_database_screen.dart';
 import 'screens/dakwah_schedule_screen.dart';
 import 'services/api_service.dart';
 
@@ -48,7 +49,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     HomeScreen(),
     QuranListScreen(),
     AIChatScreen(),
-    MaterialEditorScreen(),
+    MaterialDatabaseScreen(),
   ];
 
   @override
@@ -59,10 +60,26 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         selectedIndex: _selectedIndex,
         onDestinationSelected: (idx) => setState(() => _selectedIndex = idx),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Beranda'),
-          NavigationDestination(icon: Icon(Icons.menu_book_outlined), selectedIcon: Icon(Icons.menu_book), label: "Al-Qur'an"),
-          NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), selectedIcon: Icon(Icons.auto_awesome), label: 'Asisten AI'),
-          NavigationDestination(icon: Icon(Icons.edit_note_outlined), selectedIcon: Icon(Icons.edit_note), label: 'Editor'),
+          NavigationDestination(
+            icon: Icon(LucideIcons.home, size: 20),
+            selectedIcon: Icon(LucideIcons.home, color: Color(0xFF0D7377), size: 20),
+            label: 'Beranda',
+          ),
+          NavigationDestination(
+            icon: Icon(LucideIcons.bookOpen, size: 20),
+            selectedIcon: Icon(LucideIcons.bookOpen, color: Color(0xFF0D7377), size: 20),
+            label: "Al-Qur'an",
+          ),
+          NavigationDestination(
+            icon: Icon(LucideIcons.sparkles, size: 20),
+            selectedIcon: Icon(LucideIcons.sparkles, color: Color(0xFF0D7377), size: 20),
+            label: 'Asisten AI',
+          ),
+          NavigationDestination(
+            icon: Icon(LucideIcons.folder, size: 20),
+            selectedIcon: Icon(LucideIcons.folder, color: Color(0xFF0D7377), size: 20),
+            label: 'Materi',
+          ),
         ],
       ),
     );
@@ -105,7 +122,8 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: Row(
           children: [
-            const Text('🕌 ', style: TextStyle(fontSize: 22)),
+            const Icon(LucideIcons.landmark, color: Color(0xFF0D7377), size: 22),
+            const SizedBox(width: 8),
             Text(
               'Bekal Dakwah',
               style: GoogleFonts.poppins(
@@ -116,8 +134,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
-          IconButton(icon: const Icon(Icons.notifications_none_rounded), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.account_circle_outlined), onPressed: () {}),
+          IconButton(icon: const Icon(LucideIcons.bell, size: 20), onPressed: () {}),
+          IconButton(icon: const Icon(LucideIcons.user, size: 20), onPressed: () {}),
         ],
       ),
       body: SingleChildScrollView(
@@ -133,7 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(
               hijri != null
                   ? '${hijri['day']} ${hijri['month']?['en']} ${hijri['year']} H'
-                  : 'Pusat Bantuan & Referensi Ilmiah Ahlus Sunnah',
+                  : 'Pusat Referensi Ilmiah & Alat Bantu Dakwah',
               style: TextStyle(color: Colors.grey[700], fontSize: 13, fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 16),
@@ -176,7 +194,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.auto_awesome, color: Color(0xFFD4A843), size: 20),
+                      const Icon(LucideIcons.sparkles, color: Color(0xFFD4A843), size: 20),
                       const SizedBox(width: 8),
                       Text(
                         'Asisten AI Dakwah (Manhaj Salaf)',
@@ -186,7 +204,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Siapkan khutbah, susun materi kajian, atau carikan dalil shahih untuk menjawab pertanyaan jamaah dengan cepat dan amanah.',
+                    'Siapkan materi kajian, carikan dalil shahih, dan susun jawaban pertanyaan jamaah dengan cepat dan amanah ilmiah.',
                     style: TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                   const SizedBox(height: 12),
@@ -199,7 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     onPressed: () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const AIChatScreen()));
                     },
-                    icon: const Icon(Icons.chat_bubble_outline, size: 16),
+                    icon: const Icon(LucideIcons.messageSquare, size: 16),
                     label: const Text('Mulai Tanya AI', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ],
@@ -220,22 +238,22 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
               children: [
-                _buildMenuCard(Icons.menu_book_rounded, "Al-Qur'an\n& Tafsir", Colors.teal, () {
+                _buildMenuCard(LucideIcons.bookOpen, "Al-Qur'an\n& Tafsir", Colors.teal, () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const QuranListScreen()));
                 }),
-                _buildMenuCard(Icons.auto_awesome, 'Tanya\nAI Dakwah', const Color(0xFFD4A843), () {
+                _buildMenuCard(LucideIcons.sparkles, 'Tanya\nAI Dakwah', const Color(0xFFD4A843), () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const AIChatScreen()));
                 }),
-                _buildMenuCard(Icons.format_quote_rounded, 'Hadits &\nTakhrij', Colors.amber[800]!, () {
+                _buildMenuCard(LucideIcons.scrollText, 'Hadits &\nTakhrij', Colors.amber[800]!, () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const HadithCategoriesScreen()));
                 }),
-                _buildMenuCard(Icons.gavel_rounded, 'Database\nFatwa', Colors.indigo, () {
+                _buildMenuCard(LucideIcons.scale, 'Database\nFatwa', Colors.indigo, () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const FatwaListScreen()));
                 }),
-                _buildMenuCard(Icons.edit_note_rounded, 'Editor\nMateri', Colors.green[700]!, () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const MaterialEditorScreen()));
+                _buildMenuCard(LucideIcons.folderArchive, 'Database\nMateri', Colors.green[700]!, () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const MaterialDatabaseScreen()));
                 }),
-                _buildMenuCard(Icons.calendar_month_rounded, 'Jadwal\nKajian', Colors.purple, () {
+                _buildMenuCard(LucideIcons.calendar, 'Jadwal\nKajian', Colors.purple, () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const DakwahScheduleScreen()));
                 }),
               ],
@@ -277,7 +295,7 @@ class _HomeScreenState extends State<HomeScreen> {
               CircleAvatar(
                 radius: 22,
                 backgroundColor: color.withOpacity(0.12),
-                child: Icon(icon, color: color, size: 22),
+                child: Icon(icon, color: color, size: 20),
               ),
               const SizedBox(height: 8),
               Text(
