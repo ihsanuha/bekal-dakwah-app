@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/ai_chat_screen.dart';
 import 'screens/quran_list_screen.dart';
+import 'screens/hadith_screens.dart';
+import 'screens/fatwa_list_screen.dart';
+import 'screens/material_editor_screen.dart';
+import 'screens/dakwah_schedule_screen.dart';
 import 'services/api_service.dart';
 
 void main() {
@@ -44,7 +48,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     HomeScreen(),
     QuranListScreen(),
     AIChatScreen(),
-    PlaceholderScreen(title: 'Catatan & Materi Dakwah'),
+    MaterialEditorScreen(),
   ];
 
   @override
@@ -58,7 +62,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Beranda'),
           NavigationDestination(icon: Icon(Icons.menu_book_outlined), selectedIcon: Icon(Icons.menu_book), label: "Al-Qur'an"),
           NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), selectedIcon: Icon(Icons.auto_awesome), label: 'Asisten AI'),
-          NavigationDestination(icon: Icon(Icons.bookmark_outline), selectedIcon: Icon(Icons.bookmark), label: 'Catatan'),
+          NavigationDestination(icon: Icon(Icons.edit_note_outlined), selectedIcon: Icon(Icons.edit_note), label: 'Editor'),
         ],
       ),
     );
@@ -203,7 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Akses Cepat
+            // Akses Cepat Fitur Lengkap
             Text(
               'Akses Cepat',
               style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
@@ -222,10 +226,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildMenuCard(Icons.auto_awesome, 'Tanya\nAI Dakwah', const Color(0xFFD4A843), () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const AIChatScreen()));
                 }),
-                _buildMenuCard(Icons.format_quote_rounded, 'Hadits &\nTakhrij', Colors.amber[800]!, () {}),
-                _buildMenuCard(Icons.gavel_rounded, 'Database\nFatwa', Colors.indigo, () {}),
-                _buildMenuCard(Icons.edit_note_rounded, 'Editor\nMateri', Colors.green[700]!, () {}),
-                _buildMenuCard(Icons.calendar_month_rounded, 'Jadwal\nKajian', Colors.purple, () {}),
+                _buildMenuCard(Icons.format_quote_rounded, 'Hadits &\nTakhrij', Colors.amber[800]!, () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const HadithCategoriesScreen()));
+                }),
+                _buildMenuCard(Icons.gavel_rounded, 'Database\nFatwa', Colors.indigo, () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const FatwaListScreen()));
+                }),
+                _buildMenuCard(Icons.edit_note_rounded, 'Editor\nMateri', Colors.green[700]!, () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const MaterialEditorScreen()));
+                }),
+                _buildMenuCard(Icons.calendar_month_rounded, 'Jadwal\nKajian', Colors.purple, () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const DakwahScheduleScreen()));
+                }),
               ],
             ),
           ],
@@ -276,21 +288,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class PlaceholderScreen extends StatelessWidget {
-  final String title;
-  const PlaceholderScreen({super.key, required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Text('$title (Segera Hadir)', style: const TextStyle(color: Colors.grey)),
       ),
     );
   }

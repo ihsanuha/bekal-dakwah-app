@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
+import 'quran_surah_detail_screen.dart';
 
 class QuranListScreen extends StatefulWidget {
   const QuranListScreen({super.key});
@@ -67,7 +68,16 @@ class _QuranListScreenState extends State<QuranListScreen> {
                     style: GoogleFonts.amiri(fontSize: 20, color: const Color(0xFF0D7377)),
                   ),
                   onTap: () {
-                    // Detail surah view
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => QuranSurahDetailScreen(
+                          chapterId: surah['id'],
+                          surahName: surah['name_simple'] ?? '',
+                          arabicName: surah['name_arabic'] ?? '',
+                        ),
+                      ),
+                    );
                   },
                 );
               },

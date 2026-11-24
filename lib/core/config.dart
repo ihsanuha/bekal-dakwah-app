@@ -8,4 +8,8 @@ class AppConfig {
   static const String prayerTimes = '$baseUrl/prayer-times/today';
   static const String aiChat = '$baseUrl/ai/chat';
   static const String maktabahSearch = '$baseUrl/maktabah/search';
+  static const String hadithCategories = '$baseUrl/hadith/categories';
+  static const String hadithList = '$baseUrl/hadith/list';
+  static String hadithDetail(int id) => '$baseUrl/hadith/detail/$id';
+  static const String fatwaList = '$baseUrl/fatwa/list';
 }
