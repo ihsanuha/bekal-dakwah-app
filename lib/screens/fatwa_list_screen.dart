@@ -18,7 +18,9 @@ class FatwaListScreen extends StatefulWidget {
 class _FatwaListScreenState extends State<FatwaListScreen> with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   late final WebViewController _islamwebController;
+  late final WebViewController _bekalIslamController;
   int _webProgress = 0;
+  int _bekalProgress = 0;
 
   // Fatwa Indonesia (IslamHouse API v3)
   List<dynamic> _ihFatwas = [];
@@ -30,7 +32,7 @@ class _FatwaListScreenState extends State<FatwaListScreen> with SingleTickerProv
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _islamwebController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
@@ -41,6 +43,16 @@ class _FatwaListScreenState extends State<FatwaListScreen> with SingleTickerProv
         ),
       )
       ..loadRequest(Uri.parse('https://www.islamweb.net/ar/fatwa/'));
+    _bekalIslamController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onProgress: (p) {
+            if (mounted) setState(() => _bekalProgress = p);
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse('https://bekalislam.online/fatwa-ulama'));
     _loadIslamHouseFatwas(page: 1);
   }
 
@@ -149,8 +161,10 @@ class _FatwaListScreenState extends State<FatwaListScreen> with SingleTickerProv
             onPressed: () {
               if (_tabController.index == 0) {
                 _islamwebController.reload();
-              } else {
+              } else if (_tabController.index == 1) {
                 _loadIslamHouseFatwas(page: _ihPage);
+              } else {
+                _bekalIslamController.reload();
               }
             },
           ),
@@ -160,8 +174,9 @@ class _FatwaListScreenState extends State<FatwaListScreen> with SingleTickerProv
           labelColor: const Color(0xFF0D7377),
           indicatorColor: const Color(0xFF0D7377),
           tabs: const [
-            Tab(text: 'IslamWeb (Arab)'),
-            Tab(text: 'Fatwa Indonesia'),
+            Tab(text: 'IslamWeb (AR)'),
+            Tab(text: 'IslamHouse (ID)'),
+            Tab(text: 'Bekal Islam'),
           ],
         ),
       ),
@@ -281,6 +296,19 @@ class _FatwaListScreenState extends State<FatwaListScreen> with SingleTickerProv
                             },
                           ),
               ),
+            ],
+          ),
+
+          // Tab 3: Bekal Islam Fatwa Ulama
+          Column(
+            children: [
+              if (_bekalProgress < 100)
+                LinearProgressIndicator(
+                  value: _bekalProgress / 100.0,
+                  color: const Color(0xFF0D7377),
+                  minHeight: 2.5,
+                ),
+              Expanded(child: WebViewWidget(controller: _bekalIslamController)),
             ],
           ),
         ],

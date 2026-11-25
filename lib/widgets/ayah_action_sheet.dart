@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../services/quran_db_service.dart';
 import '../screens/ai_chat_screen.dart';
+import '../screens/hadith_webview_screen.dart';
 
 class AyahActionSheet extends StatefulWidget {
   final int surahId;
@@ -224,6 +225,27 @@ class _AyahActionSheetState extends State<AyahActionSheet> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.brown[700],
+                      side: BorderSide(color: Colors.brown[300]!),
+                    ),
+                    icon: const Icon(LucideIcons.globe, size: 15),
+                    label: const Text('Buka di Tafsir.app (Al-Bahits Al-Qur\'ani)'),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => HadithWebViewScreen(
+                            url: 'https://tafsir.app/${widget.surahId}/${widget.ayahNumber}',
+                            title: 'Tafsir.app • QS. ${widget.surahName}: ${widget.ayahNumber}',
+                          ),
+                        ),
+                      );
+                    },
                   ),
 
                   // Panel Tafsir (persis kebutuhan studi Ustadz)

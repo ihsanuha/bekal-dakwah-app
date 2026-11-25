@@ -3,14 +3,38 @@ import 'package:http/http.dart' as http;
 import '../core/config.dart';
 
 class ApiService {
-  /// Ambil jadwal shalat & kalender hijriyah hari ini
-  static Future<Map<String, dynamic>?> getPrayerTimes({String city = "Jakarta"}) async {
+  /// Ambil jadwal shalat & kalender hijriyah hari ini (presisi GPS jika lat/lon tersedia)
+  static Future<Map<String, dynamic>?> getPrayerTimes({
+    String city = "Jakarta",
+    double? lat,
+    double? lon,
+  }) async {
     try {
-      final res = await http.get(Uri.parse('${AppConfig.prayerTimes}?city=$city'));
+      final uri = (lat != null && lon != null)
+          ? Uri.parse('${AppConfig.prayerTimes}?lat=$lat&lon=$lon&method=20')
+          : Uri.parse('${AppConfig.prayerTimes}?city=$city');
+      final res = await http.get(uri).timeout(const Duration(seconds: 12));
       if (res.statusCode == 200) {
         return jsonDecode(res.body);
       }
     } catch (_) {}
+
+    // Fallback langsung ke Aladhan API jika backend sedang cold start
+    if (lat != null && lon != null) {
+      try {
+        final direct = await http
+            .get(Uri.parse('https://api.aladhan.com/v1/timings?latitude=$lat&longitude=$lon&method=20'))
+            .timeout(const Duration(seconds: 12));
+        if (direct.statusCode == 200) {
+          final data = (jsonDecode(direct.body)['data'] as Map<String, dynamic>?) ?? {};
+          return {
+            'timings': data['timings'] ?? {},
+            'date': data['date'] ?? {},
+            'meta': data['meta'] ?? {},
+          };
+        }
+      } catch (_) {}
+    }
     return null;
   }
 

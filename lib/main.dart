@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/ai_chat_screen.dart';
 import 'screens/quran_list_screen.dart';
 import 'screens/hadith_screens.dart';
@@ -11,6 +13,7 @@ import 'screens/material_database_screen.dart';
 import 'screens/dakwah_schedule_screen.dart';
 import 'screens/doa_dzikir_screen.dart';
 import 'screens/islamhouse_screen.dart';
+import 'screens/portal_hub_screen.dart';
 import 'services/api_service.dart';
 import 'services/notification_service.dart';
 
@@ -103,6 +106,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _prayerData;
   bool _loadingPrayer = true;
+  String _locationLabel = 'Jakarta (Default)';
 
   @override
   void initState() {
@@ -110,11 +114,50 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadPrayerTimes();
   }
 
-  void _loadPrayerTimes() async {
-    final data = await ApiService.getPrayerTimes();
+  Future<void> _loadPrayerTimes({bool forceGpsRefresh = false}) async {
+    final prefs = await SharedPreferences.getInstance();
+    double? lat = prefs.getDouble('last_lat');
+    double? lon = prefs.getDouble('last_lon');
+
+    if (lat != null && lon != null && !forceGpsRefresh) {
+      final cachedLat = lat;
+      final cachedLon = lon;
+      final cachedData = await ApiService.getPrayerTimes(lat: cachedLat, lon: cachedLon);
+      if (mounted && cachedData != null) {
+        setState(() {
+          _prayerData = cachedData;
+          _locationLabel = 'GPS (${cachedLat.toStringAsFixed(3)}, ${cachedLon.toStringAsFixed(3)})';
+          _loadingPrayer = false;
+        });
+      }
+    }
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (serviceEnabled) {
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+        }
+        if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+          final pos = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 10)),
+          );
+          lat = pos.latitude;
+          lon = pos.longitude;
+          await prefs.setDouble('last_lat', lat);
+          await prefs.setDouble('last_lon', lon);
+        }
+      }
+    } catch (_) {}
+
+    final data = await ApiService.getPrayerTimes(lat: lat, lon: lon);
     if (mounted) {
       setState(() {
         _prayerData = data;
+        _locationLabel = (lat != null && lon != null)
+            ? 'GPS (${lat.toStringAsFixed(3)}, ${lon.toStringAsFixed(3)})'
+            : 'Jakarta (Default)';
         _loadingPrayer = false;
       });
     }
@@ -160,7 +203,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     '• Maktabah Kitab Ulama (turath.io)\n'
                     '• Konsultasi Syariah (konsultasisyariah.com)\n'
                     '• Doa & Dzikir Shahih (Hisnul Muslim & Dzikir Pagi Petang)\n'
-                    '• Fatwa IslamWeb & Pustaka IslamHouse',
+                    '• Fatwa IslamWeb, IslamHouse & Bekal Islam\n'
+                    '• Portal Riset: Tafsir.app, Hifdh.app, Bahith.app, Sunnah.one, Faidah.app',
                     style: TextStyle(fontSize: 13, height: 1.5),
                   ),
                   actions: [
@@ -190,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Card Jadwal Shalat
+            // Card Jadwal Shalat (Presisi GPS)
             if (!_loadingPrayer && timings != null)
               Container(
                 padding: const EdgeInsets.all(14),
@@ -199,17 +243,47 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: Colors.grey[200]!),
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 6, offset: const Offset(0, 2)),
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 6, offset: const Offset(0, 2)),
                   ],
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                child: Column(
                   children: [
-                    _prayerItem('Shubuh', timings['Fajr']),
-                    _prayerItem('Dzuhur', timings['Dhuhr']),
-                    _prayerItem('Ashar', timings['Asr']),
-                    _prayerItem('Maghrib', timings['Maghrib']),
-                    _prayerItem('Isya', timings['Isha']),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(LucideIcons.mapPin, size: 13, color: Color(0xFF0D7377)),
+                            const SizedBox(width: 4),
+                            Text(
+                              _locationLabel,
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey[700]),
+                            ),
+                          ],
+                        ),
+                        InkWell(
+                          onTap: () => _loadPrayerTimes(forceGpsRefresh: true),
+                          child: const Row(
+                            children: [
+                              Icon(LucideIcons.locateFixed, size: 13, color: Color(0xFF0D7377)),
+                              SizedBox(width: 3),
+                              Text('Perbarui GPS', style: TextStyle(fontSize: 11, color: Color(0xFF0D7377), fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _prayerItem('Shubuh', timings['Fajr']),
+                        _prayerItem('Dzuhur', timings['Dhuhr']),
+                        _prayerItem('Ashar', timings['Asr']),
+                        _prayerItem('Maghrib', timings['Maghrib']),
+                        _prayerItem('Isya', timings['Isha']),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -309,6 +383,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 }),
                 _buildMenuCard(LucideIcons.bookMarked, 'Pustaka\nIslamHouse', Colors.deepOrange[600]!, () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const IslamHouseScreen()));
+                }),
+                _buildMenuCard(LucideIcons.compass, 'Portal Riset\nIlmiah', Colors.blueGrey[700]!, () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const PortalHubScreen()));
                 }),
               ],
             ),
