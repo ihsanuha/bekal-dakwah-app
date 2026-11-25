@@ -1,17 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/api_service.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import '../services/quran_db_service.dart';
+import 'ai_chat_screen.dart';
 
 class QuranSurahDetailScreen extends StatefulWidget {
   final int chapterId;
   final String surahName;
   final String arabicName;
+  final String indoName;
+  final int? initialAyah;
 
   const QuranSurahDetailScreen({
     super.key,
     required this.chapterId,
     required this.surahName,
     required this.arabicName,
+    this.indoName = '',
+    this.initialAyah,
   });
 
   @override
@@ -19,8 +26,11 @@ class QuranSurahDetailScreen extends StatefulWidget {
 }
 
 class _QuranSurahDetailScreenState extends State<QuranSurahDetailScreen> {
-  List<dynamic> _verses = [];
+  List<Map<String, dynamic>> _verses = [];
   bool _isLoading = true;
+  double _arabicFontSize = 24.0;
+  final ScrollController _scrollController = ScrollController();
+  final Map<int, GlobalKey> _ayahKeys = {};
 
   @override
   void initState() {
@@ -28,92 +38,210 @@ class _QuranSurahDetailScreenState extends State<QuranSurahDetailScreen> {
     _loadVerses();
   }
 
-  void _loadVerses() async {
-    final list = await ApiService.getSurahVerses(widget.chapterId);
-    if (mounted) {
-      setState(() {
-        _verses = list;
-        _isLoading = false;
-      });
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadVerses() async {
+    try {
+      final list = await QuranDbService.getVerses(widget.chapterId);
+      if (mounted) {
+        for (final v in list) {
+          _ayahKeys[v['ayah_number'] as int] = GlobalKey();
+        }
+        setState(() {
+          _verses = list;
+          _isLoading = false;
+        });
+
+        if (widget.initialAyah != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToAyah(widget.initialAyah!));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal memuat ayat: $e')),
+        );
+      }
     }
+  }
+
+  void _scrollToAyah(int ayahNumber) async {
+    // Estimasi posisi awal agar ListView me-render sekitar target, lalu EnsureVisible presisi
+    final targetIdx = _verses.indexWhere((v) => v['ayah_number'] == ayahNumber);
+    if (targetIdx == -1) return;
+
+    if (_scrollController.hasClients) {
+      final estimatedOffset = (targetIdx * 210.0).clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.jumpTo(estimatedOffset);
+      await Future.delayed(const Duration(milliseconds: 80));
+    }
+
+    final keyContext = _ayahKeys[ayahNumber]?.currentContext;
+    if (mounted && keyContext != null && keyContext.mounted) {
+      Scrollable.ensureVisible(
+        keyContext,
+        duration: const Duration(milliseconds: 350),
+        alignment: 0.1,
+      );
+    }
+  }
+
+  void _copyAyah(Map<String, dynamic> verse) {
+    final ayahNum = verse['ayah_number'];
+    final formatted = '${verse['text_uthmani']}\n\n"${verse['translation_id']}"\n(QS. ${widget.surahName}: $ayahNum)';
+    Clipboard.setData(ClipboardData(text: formatted));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Ayat $ayahNum (${widget.surahName}) tersalin ke clipboard')),
+    );
+  }
+
+  void _askAIAboutAyah(Map<String, dynamic> verse) {
+    final ayahNum = verse['ayah_number'];
+    final prompt =
+        'Jelaskan tafsir ringkas dan faedah ilmiah dari QS. ${widget.surahName} (${widget.chapterId}) ayat $ayahNum menurut Tafsir Ibnu Katsir dan Tafsir As-Sa\'di:\n\n${verse['text_uthmani']}\n"${verse['translation_id']}"';
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => AIChatScreen(initialPrompt: prompt)),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final showBismillahBanner = widget.chapterId != 1 && widget.chapterId != 9;
+
     return Scaffold(
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.surahName, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16)),
-            Text(widget.arabicName, style: GoogleFonts.amiri(fontSize: 14, color: const Color(0xFF0D7377))),
+            Text(
+              '${widget.surahName} ${widget.indoName.isNotEmpty ? "(${widget.indoName})" : ""}',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
+            Text(
+              '${widget.arabicName} • ${_verses.length} Ayat',
+              style: GoogleFonts.amiri(fontSize: 14, color: const Color(0xFF0D7377)),
+            ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(LucideIcons.zoomOut, size: 18),
+            tooltip: 'Perkecil huruf Arab',
+            onPressed: () => setState(() => _arabicFontSize = (_arabicFontSize - 2).clamp(18.0, 38.0)),
+          ),
+          IconButton(
+            icon: const Icon(LucideIcons.zoomIn, size: 18),
+            tooltip: 'Perbesar huruf Arab',
+            onPressed: () => setState(() => _arabicFontSize = (_arabicFontSize + 2).clamp(18.0, 38.0)),
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF0D7377)))
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: _verses.length,
-              separatorBuilder: (ctx, i) => const Divider(height: 32),
-              itemBuilder: (ctx, i) {
-                final verse = _verses[i];
-                final verseNumber = verse['verse_number'];
-                final textUthmani = verse['text_uthmani'] ?? '';
-                final translations = verse['translations'] as List?;
-                final translationText = translations != null && translations.isNotEmpty
-                    ? translations[0]['text']
-                    : '';
+          : ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.all(14),
+              itemCount: _verses.length + (showBismillahBanner ? 1 : 0),
+              itemBuilder: (ctx, idx) {
+                if (showBismillahBanner && idx == 0) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0D7377).withOpacity(0.06),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF0D7377).withOpacity(0.15)),
+                    ),
+                    child: Text(
+                      'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.amiri(fontSize: 24, fontWeight: FontWeight.bold, color: const Color(0xFF0D7377)),
+                    ),
+                  );
+                }
 
-                // Hapus tag HTML seperti <sup ...> jika ada
-                final cleanTranslation = translationText.replaceAll(RegExp(r'<[^>]*>'), '');
+                final verseIdx = showBismillahBanner ? idx - 1 : idx;
+                final verse = _verses[verseIdx];
+                final ayahNum = verse['ayah_number'] as int;
+                final isHighlighted = widget.initialAyah == ayahNum;
 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        CircleAvatar(
-                          radius: 14,
-                          backgroundColor: const Color(0xFF0D7377).withOpacity(0.1),
-                          child: Text(
-                            '$verseNumber',
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0D7377)),
+                return Container(
+                  key: _ayahKeys[ayahNum],
+                  margin: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isHighlighted ? const Color(0xFFD4A843).withOpacity(0.12) : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isHighlighted ? const Color(0xFFD4A843) : Colors.grey[200]!,
+                      width: isHighlighted ? 1.5 : 1.0,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 14,
+                            backgroundColor: const Color(0xFF0D7377).withOpacity(0.1),
+                            child: Text(
+                              '$ayahNum',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0D7377)),
+                            ),
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.copy_rounded, size: 18, color: Colors.grey),
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Ayat $verseNumber tersalin')),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      textUthmani,
-                      textAlign: TextAlign.right,
-                      style: GoogleFonts.amiri(
-                        fontSize: 24,
-                        height: 2.2,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.black87,
+                          const SizedBox(width: 8),
+                          Text(
+                            'Juz ${verse['juz']} • Hal ${verse['page']}',
+                            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                            icon: const Icon(LucideIcons.sparkles, size: 17, color: Color(0xFFD4A843)),
+                            tooltip: 'Tanya Tafsir ke AI',
+                            onPressed: () => _askAIAboutAyah(verse),
+                          ),
+                          IconButton(
+                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                            icon: const Icon(LucideIcons.copy, size: 17, color: Colors.grey),
+                            tooltip: 'Salin Ayat & Terjemah',
+                            onPressed: () => _copyAyah(verse),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      cleanTranslation,
-                      textAlign: TextAlign.left,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.5,
-                        color: Colors.black87,
+                      const SizedBox(height: 12),
+                      SelectableText(
+                        verse['text_uthmani'] ?? '',
+                        textAlign: TextAlign.right,
+                        textDirection: TextDirection.rtl,
+                        style: GoogleFonts.amiri(
+                          fontSize: _arabicFontSize,
+                          height: 2.1,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      SelectableText(
+                        verse['translation_id'] ?? '',
+                        textAlign: TextAlign.left,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          height: 1.55,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               },
             ),

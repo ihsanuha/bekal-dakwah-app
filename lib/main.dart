@@ -135,7 +135,29 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           IconButton(icon: const Icon(LucideIcons.bell, size: 20), onPressed: () {}),
-          IconButton(icon: const Icon(LucideIcons.user, size: 20), onPressed: () {}),
+          IconButton(
+            icon: const Icon(LucideIcons.info, size: 20),
+            tooltip: 'Tentang & Lisensi Open Source',
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: Text('Bekal Dakwah (GPL-3.0)', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)),
+                  content: const Text(
+                    'Aplikasi pusat bantuan dakwah khusus Android, 100% gratis & non-komersial di bawah lisensi GNU GPL-3.0.\n\n'
+                    'Atribusi Sumber Terbuka:\n'
+                    '• Mesin Pencari Arab Al-Qur\'an diadaptasi dari quran/quran_android (GPL-3.0)\n'
+                    '• Teks Al-Qur\'an & Terjemah Kemenag (Tanzil / AlQuran Cloud)\n'
+                    '• Ensiklopedia Hadits & Syarah (HadeethEnc)',
+                    style: TextStyle(fontSize: 13, height: 1.5),
+                  ),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Tutup')),
+                  ],
+                ),
+              );
+            },
+          ),
         ],
       ),
       body: SingleChildScrollView(

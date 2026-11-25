@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../services/api_service.dart';
 
 class AIChatScreen extends StatefulWidget {
-  const AIChatScreen({super.key});
+  final String? initialPrompt;
+  const AIChatScreen({super.key, this.initialPrompt});
 
   @override
   State<AIChatScreen> createState() => _AIChatScreenState();
@@ -19,6 +21,17 @@ class _AIChatScreenState extends State<AIChatScreen> {
   ];
   bool _isLoading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialPrompt != null && widget.initialPrompt!.trim().isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _controller.text = widget.initialPrompt!;
+        _sendMessage();
+      });
+    }
+  }
+
   void _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty || _isLoading) return;
@@ -31,10 +44,12 @@ class _AIChatScreenState extends State<AIChatScreen> {
 
     final response = await ApiService.askAI(text);
 
-    setState(() {
-      _messages.add({'role': 'assistant', 'content': response});
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _messages.add({'role': 'assistant', 'content': response});
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -43,7 +58,7 @@ class _AIChatScreenState extends State<AIChatScreen> {
       appBar: AppBar(
         title: Row(
           children: [
-            const Icon(Icons.auto_awesome, color: Color(0xFFD4A843), size: 20),
+            const Icon(LucideIcons.sparkles, color: Color(0xFFD4A843), size: 20),
             const SizedBox(width: 8),
             Text(
               'Asisten AI Dakwah',
@@ -69,19 +84,19 @@ class _AIChatScreenState extends State<AIChatScreen> {
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(14),
                     constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.82,
+                      maxWidth: MediaQuery.of(context).size.width * 0.85,
                     ),
                     decoration: BoxDecoration(
                       color: isUser ? const Color(0xFF0D7377) : Colors.grey[100],
                       borderRadius: BorderRadius.circular(16),
                       border: isUser ? null : Border.all(color: Colors.grey[300]!),
                     ),
-                    child: Text(
+                    child: SelectableText(
                       msg['content'] ?? '',
                       style: TextStyle(
                         color: isUser ? Colors.white : Colors.black87,
                         fontSize: 14,
-                        height: 1.4,
+                        height: 1.45,
                       ),
                     ),
                   ),
@@ -135,7 +150,7 @@ class _AIChatScreenState extends State<AIChatScreen> {
                     backgroundColor: const Color(0xFF0D7377),
                     foregroundColor: Colors.white,
                   ),
-                  icon: const Icon(Icons.send_rounded),
+                  icon: const Icon(LucideIcons.send, size: 18),
                   onPressed: _sendMessage,
                 ),
               ],
