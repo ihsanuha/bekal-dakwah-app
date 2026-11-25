@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../services/quran_db_service.dart';
+import '../widgets/ayah_action_sheet.dart';
 import 'ai_chat_screen.dart';
+import 'quran_mushaf_screen.dart';
 
 class QuranSurahDetailScreen extends StatefulWidget {
   final int chapterId;
@@ -71,7 +73,6 @@ class _QuranSurahDetailScreenState extends State<QuranSurahDetailScreen> {
   }
 
   void _scrollToAyah(int ayahNumber) async {
-    // Estimasi posisi awal agar ListView me-render sekitar target, lalu EnsureVisible presisi
     final targetIdx = _verses.indexWhere((v) => v['ayah_number'] == ayahNumber);
     if (targetIdx == -1) return;
 
@@ -100,6 +101,37 @@ class _QuranSurahDetailScreenState extends State<QuranSurahDetailScreen> {
     );
   }
 
+  void _openAyahSheet(Map<String, dynamic> verse) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => AyahActionSheet(
+        surahId: widget.chapterId,
+        ayahNumber: verse['ayah_number'] as int,
+        pageNumber: verse['page'] as int,
+        surahName: widget.surahName,
+        surahArabic: widget.arabicName,
+        textUthmani: (verse['text_uthmani'] ?? '').toString(),
+        translationId: (verse['translation_id'] ?? '').toString(),
+      ),
+    );
+  }
+
+  void _switchToMushafMode() {
+    final page = _verses.isNotEmpty ? (_verses.first['page'] as int) : 1;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => QuranMushafScreen(
+          initialPage: page,
+          highlightSurahId: widget.chapterId,
+          highlightAyahNumber: widget.initialAyah,
+        ),
+      ),
+    );
+  }
+
   void _askAIAboutAyah(Map<String, dynamic> verse) {
     final ayahNum = verse['ayah_number'];
     final prompt =
@@ -124,12 +156,17 @@ class _QuranSurahDetailScreenState extends State<QuranSurahDetailScreen> {
               style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 15),
             ),
             Text(
-              '${widget.arabicName} • ${_verses.length} Ayat',
-              style: GoogleFonts.amiri(fontSize: 14, color: const Color(0xFF0D7377)),
+              '${widget.arabicName} • ${_verses.length} Ayat (Mode Daftar)',
+              style: GoogleFonts.amiri(fontSize: 13, color: const Color(0xFF0D7377)),
             ),
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(LucideIcons.bookOpen, size: 18),
+            tooltip: 'Buka Mode Mushaf Madani',
+            onPressed: _switchToMushafMode,
+          ),
           IconButton(
             icon: const Icon(LucideIcons.zoomOut, size: 18),
             tooltip: 'Perkecil huruf Arab',
@@ -154,9 +191,9 @@ class _QuranSurahDetailScreenState extends State<QuranSurahDetailScreen> {
                     margin: const EdgeInsets.only(bottom: 16),
                     padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0D7377).withOpacity(0.06),
+                      color: const Color(0xFF0D7377).withValues(alpha: 0.06),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF0D7377).withOpacity(0.15)),
+                      border: Border.all(color: const Color(0xFF0D7377).withValues(alpha: 0.15)),
                     ),
                     child: Text(
                       'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
@@ -176,7 +213,7 @@ class _QuranSurahDetailScreenState extends State<QuranSurahDetailScreen> {
                   margin: const EdgeInsets.only(bottom: 14),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: isHighlighted ? const Color(0xFFD4A843).withOpacity(0.12) : Colors.white,
+                    color: isHighlighted ? const Color(0xFFD4A843).withValues(alpha: 0.12) : Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isHighlighted ? const Color(0xFFD4A843) : Colors.grey[200]!,
@@ -190,7 +227,7 @@ class _QuranSurahDetailScreenState extends State<QuranSurahDetailScreen> {
                         children: [
                           CircleAvatar(
                             radius: 14,
-                            backgroundColor: const Color(0xFF0D7377).withOpacity(0.1),
+                            backgroundColor: const Color(0xFF0D7377).withValues(alpha: 0.1),
                             child: Text(
                               '$ayahNum',
                               style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0D7377)),
@@ -202,6 +239,13 @@ class _QuranSurahDetailScreenState extends State<QuranSurahDetailScreen> {
                             style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                           ),
                           const Spacer(),
+                          IconButton(
+                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                            icon: const Icon(LucideIcons.bookOpenCheck, size: 17, color: Color(0xFF0D7377)),
+                            tooltip: 'Baca Tafsir & Bookmark',
+                            onPressed: () => _openAyahSheet(verse),
+                          ),
                           IconButton(
                             constraints: const BoxConstraints(),
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),

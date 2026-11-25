@@ -146,8 +146,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   content: const Text(
                     'Aplikasi pusat bantuan dakwah khusus Android, 100% gratis & non-komersial di bawah lisensi GNU GPL-3.0.\n\n'
                     'Atribusi Sumber Terbuka:\n'
-                    '• Mesin Pencari Arab Al-Qur\'an diadaptasi dari quran/quran_android (GPL-3.0)\n'
+                    '• Mushaf Madani, ayahinfo, & Mesin Pencari Arab diadaptasi dari quran/quran_android (GPL-3.0) & files.quran.app\n'
                     '• Teks Al-Qur\'an & Terjemah Kemenag (Tanzil / AlQuran Cloud)\n'
+                    '• Tafsir Ibnu Katsir, As-Sa\'di, Al-Baghawi (Quran.com API) & Tafsir Kemenag (equran.id)\n'
                     '• Ensiklopedia Hadits & Syarah (HadeethEnc)',
                     style: TextStyle(fontSize: 13, height: 1.5),
                   ),
