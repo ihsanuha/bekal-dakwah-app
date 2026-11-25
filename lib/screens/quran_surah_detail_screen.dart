@@ -119,7 +119,18 @@ class _QuranSurahDetailScreenState extends State<QuranSurahDetailScreen> {
   }
 
   void _switchToMushafMode() {
-    final page = _verses.isNotEmpty ? (_verses.first['page'] as int) : 1;
+    int page = 1;
+    if (_verses.isNotEmpty) {
+      if (widget.initialAyah != null) {
+        final target = _verses.firstWhere(
+          (v) => v['ayah_number'] == widget.initialAyah,
+          orElse: () => _verses.first,
+        );
+        page = (target['page'] as int?) ?? 1;
+      } else {
+        page = (_verses.first['page'] as int?) ?? 1;
+      }
+    }
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(

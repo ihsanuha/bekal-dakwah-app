@@ -631,6 +631,21 @@ class _QuranListScreenState extends State<QuranListScreen> with SingleTickerProv
                           IconButton(
                             constraints: const BoxConstraints(),
                             padding: const EdgeInsets.all(4),
+                            icon: const Icon(LucideIcons.bookOpen, size: 16, color: Color(0xFFD4A843)),
+                            tooltip: 'Buka di Mushaf Madani',
+                            onPressed: () => _openLocation(
+                              page: v['page'] as int,
+                              surahId: v['surah_id'] as int,
+                              surahName: (v['surah_name_simple'] ?? '').toString(),
+                              surahArabic: (v['surah_name_arabic'] ?? '').toString(),
+                              surahIndo: (v['surah_name_indo'] ?? '').toString(),
+                              ayahNumber: v['ayah_number'] as int,
+                              forceMushaf: true,
+                            ),
+                          ),
+                          IconButton(
+                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.all(4),
                             icon: const Icon(LucideIcons.list, size: 16, color: Color(0xFF0D7377)),
                             tooltip: 'Buka di Mode Daftar',
                             onPressed: () => _openLocation(

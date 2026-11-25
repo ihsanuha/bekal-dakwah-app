@@ -9,9 +9,13 @@ import 'screens/turath_screens.dart';
 import 'screens/fatwa_list_screen.dart';
 import 'screens/material_database_screen.dart';
 import 'screens/dakwah_schedule_screen.dart';
+import 'screens/doa_dzikir_screen.dart';
 import 'services/api_service.dart';
+import 'services/notification_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.init();
   runApp(const BekalDakwahApp());
 }
 
@@ -153,7 +157,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     '• Tafsir Ibnu Katsir, As-Sa\'di, Al-Baghawi (Quran.com API) & Tafsir Kemenag (equran.id)\n'
                     '• Ensiklopedia Hadits & Takhrij (hdith.com)\n'
                     '• Maktabah Kitab Ulama (turath.io)\n'
-                    '• Konsultasi Syariah (konsultasisyariah.com)',
+                    '• Konsultasi Syariah (konsultasisyariah.com)\n'
+                    '• Doa & Dzikir Shahih (Hisnul Muslim & Dzikir Pagi Petang)',
                     style: TextStyle(fontSize: 13, height: 1.5),
                   ),
                   actions: [
@@ -296,6 +301,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 }),
                 _buildMenuCard(LucideIcons.calendar, 'Jadwal\nKajian', Colors.purple, () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const DakwahScheduleScreen()));
+                }),
+                _buildMenuCard(LucideIcons.heartHandshake, 'Doa &\nDzikir', Colors.pink[600]!, () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const DoaDzikirScreen()));
                 }),
               ],
             ),

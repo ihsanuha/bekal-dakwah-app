@@ -41,8 +41,11 @@ dependencies:
   lucide_icons: ^0.257.0
   path_provider: ^2.1.6
   webview_flutter: ^4.14.1
-  file_picker: ^10.1.2
+  file_picker: ^10.3.10
   open_filex: ^4.7.0
+  path: ^1.9.1
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.10.0
 
 dev_dependencies:
   flutter_test:
@@ -68,6 +71,8 @@ flutter:
 
   assets:
     - assets/db/quran_id.db
+    - assets/data/dzikir_pagi_petang.json
+    - assets/data/hisnul_muslim_id.json
 
   fonts:
     - family: ThmanyahText
