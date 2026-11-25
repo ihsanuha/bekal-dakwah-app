@@ -21,6 +21,7 @@ class _DoaDzikirScreenState extends State<DoaDzikirScreen> with SingleTickerProv
   List<Map<String, dynamic>> _filteredHisnul = [];
 
   final Map<String, int> _counters = {};
+  final Map<String, GlobalKey> _dzikirKeys = {};
   final TextEditingController _searchCtrl = TextEditingController();
 
   @override
@@ -79,11 +80,25 @@ class _DoaDzikirScreenState extends State<DoaDzikirScreen> with SingleTickerProv
     });
   }
 
-  void _incrementCounter(String key, int target) {
+  void _incrementCounter(String key, int target, {String? nextKey}) {
     final current = _counters[key] ?? 0;
     if (current < target) {
       HapticFeedback.lightImpact();
-      setState(() => _counters[key] = current + 1);
+      final nextVal = current + 1;
+      setState(() => _counters[key] = nextVal);
+      if (nextVal == target && nextKey != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final nextCtx = _dzikirKeys[nextKey]?.currentContext;
+          if (mounted && nextCtx != null && nextCtx.mounted) {
+            Scrollable.ensureVisible(
+              nextCtx,
+              alignment: 0.5,
+              duration: const Duration(milliseconds: 450),
+              curve: Curves.easeInOut,
+            );
+          }
+        });
+      }
     }
   }
 
@@ -141,148 +156,152 @@ class _DoaDzikirScreenState extends State<DoaDzikirScreen> with SingleTickerProv
   }
 
   Widget _buildDzikirList(List<Map<String, dynamic>> items, {required String prefix}) {
-    return ListView.builder(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
-      itemCount: items.length,
-      itemBuilder: (_, idx) {
-        final item = items[idx];
-        final key = '${prefix}_${item['id'] ?? idx}';
-        final target = int.tryParse('${item['ulang'] ?? 1}') ?? 1;
-        final count = _counters[key] ?? 0;
-        final done = count >= target;
-        final dalil = (item['dalil'] ?? '').toString().trim();
-        final latin = (item['latin'] ?? '').toString().trim();
+      child: Column(
+        children: List.generate(items.length, (idx) {
+          final item = items[idx];
+          final key = '${prefix}_${item['id'] ?? idx}';
+          final nextKey = idx + 1 < items.length ? '${prefix}_${items[idx + 1]['id'] ?? (idx + 1)}' : null;
+          final cardKey = _dzikirKeys.putIfAbsent(key, () => GlobalKey());
+          final target = int.tryParse('${item['ulang'] ?? 1}') ?? 1;
+          final count = _counters[key] ?? 0;
+          final done = count >= target;
+          final dalil = (item['dalil'] ?? '').toString().trim();
+          final latin = (item['latin'] ?? '').toString().trim();
 
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          elevation: 0.6,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: BorderSide(
-              color: done ? const Color(0xFF0D7377) : Colors.grey[200]!,
-              width: done ? 1.5 : 1,
+          return Card(
+            key: cardKey,
+            margin: const EdgeInsets.only(bottom: 12),
+            elevation: 0.6,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(
+                color: done ? const Color(0xFF0D7377) : Colors.grey[200]!,
+                width: done ? 1.5 : 1,
+              ),
             ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 13,
-                      backgroundColor: done ? const Color(0xFF0D7377) : Colors.teal.withValues(alpha: 0.12),
-                      child: done
-                          ? const Icon(Icons.check, size: 15, color: Colors.white)
-                          : Text('${idx + 1}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0D7377))),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        (item['judul'] ?? '').toString(),
-                        style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 13.5),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 13,
+                        backgroundColor: done ? const Color(0xFF0D7377) : Colors.teal.withValues(alpha: 0.12),
+                        child: done
+                            ? const Icon(Icons.check, size: 15, color: Colors.white)
+                            : Text('${idx + 1}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0D7377))),
                       ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          (item['judul'] ?? '').toString(),
+                          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 13.5),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD4A843).withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'Dibaca ${target}x',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF8C6812)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SelectableText(
+                    (item['arab'] ?? '').toString(),
+                    textAlign: TextAlign.right,
+                    textDirection: TextDirection.rtl,
+                    style: const TextStyle(
+                      fontFamily: 'ThmanyahText',
+                      fontSize: 21,
+                      height: 1.9,
+                      color: Colors.black87,
                     ),
+                  ),
+                  if (latin.isNotEmpty && latin != 'null') ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      latin,
+                      style: TextStyle(fontSize: 12.5, fontStyle: FontStyle.italic, color: Colors.teal[800]),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Text(
+                    (item['arti'] ?? '').toString(),
+                    style: TextStyle(fontSize: 13, height: 1.5, color: Colors.grey[800]),
+                  ),
+                  if (dalil.isNotEmpty && dalil != 'null') ...[
+                    const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFD4A843).withValues(alpha: 0.18),
+                        color: Colors.grey[100],
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        'Dibaca ${target}x',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF8C6812)),
+                        'Sumber / Faedah: $dalil',
+                        style: TextStyle(fontSize: 11, color: Colors.grey[700]),
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 12),
-                SelectableText(
-                  (item['arab'] ?? '').toString(),
-                  textAlign: TextAlign.right,
-                  textDirection: TextDirection.rtl,
-                  style: const TextStyle(
-                    fontFamily: 'ThmanyahText',
-                    fontSize: 21,
-                    height: 1.9,
-                    color: Colors.black87,
+                  const SizedBox(height: 10),
+                  LinearProgressIndicator(
+                    value: target > 0 ? (count / target).clamp(0.0, 1.0) : 1.0,
+                    backgroundColor: Colors.grey[200],
+                    color: const Color(0xFF0D7377),
+                    minHeight: 5,
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                ),
-                if (latin.isNotEmpty && latin != 'null') ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    latin,
-                    style: TextStyle(fontSize: 12.5, fontStyle: FontStyle.italic, color: Colors.teal[800]),
-                  ),
-                ],
-                const SizedBox(height: 8),
-                Text(
-                  (item['arti'] ?? '').toString(),
-                  style: TextStyle(fontSize: 13, height: 1.5, color: Colors.grey[800]),
-                ),
-                if (dalil.isNotEmpty && dalil != 'null') ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'Sumber / Faedah: $dalil',
-                      style: TextStyle(fontSize: 11, color: Colors.grey[700]),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 10),
-                LinearProgressIndicator(
-                  value: target > 0 ? (count / target).clamp(0.0, 1.0) : 1.0,
-                  backgroundColor: Colors.grey[200],
-                  color: const Color(0xFF0D7377),
-                  minHeight: 5,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: done ? Colors.green[700] : const Color(0xFF0D7377),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                        ),
-                        onPressed: () => _incrementCounter(key, target),
-                        icon: Icon(done ? Icons.check_circle_outline : LucideIcons.hand, size: 17),
-                        label: Text(
-                          done ? 'Selesai ($count / $target)' : 'Hitung ($count / $target)',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: done ? Colors.green[700] : const Color(0xFF0D7377),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                          onPressed: () => _incrementCounter(key, target, nextKey: nextKey),
+                          icon: Icon(done ? Icons.check_circle_outline : LucideIcons.hand, size: 17),
+                          label: Text(
+                            done ? 'Selesai ($count / $target)' : 'Hitung ($count / $target)',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(LucideIcons.rotateCcw, size: 18),
-                      tooltip: 'Reset hitungan',
-                      onPressed: count > 0 ? () => _resetCounter(key) : null,
-                    ),
-                    IconButton(
-                      icon: const Icon(LucideIcons.copy, size: 18),
-                      tooltip: 'Salin',
-                      onPressed: () {
-                        final text = '${item['judul']}\n\n${item['arab']}\n\n${item['arti']}\n($dalil)';
-                        Clipboard.setData(ClipboardData(text: text));
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dzikir disalin')));
-                      },
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(LucideIcons.rotateCcw, size: 18),
+                        tooltip: 'Reset hitungan',
+                        onPressed: count > 0 ? () => _resetCounter(key) : null,
+                      ),
+                      IconButton(
+                        icon: const Icon(LucideIcons.copy, size: 18),
+                        tooltip: 'Salin',
+                        onPressed: () {
+                          final text = '${item['judul']}\n\n${item['arab']}\n\n${item['arti']}\n($dalil)';
+                          Clipboard.setData(ClipboardData(text: text));
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dzikir disalin')));
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        }),
+      ),
     );
   }
 

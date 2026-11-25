@@ -10,6 +10,7 @@ import 'screens/fatwa_list_screen.dart';
 import 'screens/material_database_screen.dart';
 import 'screens/dakwah_schedule_screen.dart';
 import 'screens/doa_dzikir_screen.dart';
+import 'screens/islamhouse_screen.dart';
 import 'services/api_service.dart';
 import 'services/notification_service.dart';
 
@@ -158,7 +159,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     '• Ensiklopedia Hadits & Takhrij (hdith.com)\n'
                     '• Maktabah Kitab Ulama (turath.io)\n'
                     '• Konsultasi Syariah (konsultasisyariah.com)\n'
-                    '• Doa & Dzikir Shahih (Hisnul Muslim & Dzikir Pagi Petang)',
+                    '• Doa & Dzikir Shahih (Hisnul Muslim & Dzikir Pagi Petang)\n'
+                    '• Fatwa IslamWeb & Pustaka IslamHouse',
                     style: TextStyle(fontSize: 13, height: 1.5),
                   ),
                   actions: [
@@ -304,6 +306,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 }),
                 _buildMenuCard(LucideIcons.heartHandshake, 'Doa &\nDzikir', Colors.pink[600]!, () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const DoaDzikirScreen()));
+                }),
+                _buildMenuCard(LucideIcons.bookMarked, 'Pustaka\nIslamHouse', Colors.deepOrange[600]!, () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const IslamHouseScreen()));
                 }),
               ],
             ),

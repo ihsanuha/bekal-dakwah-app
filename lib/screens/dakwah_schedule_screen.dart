@@ -46,6 +46,55 @@ class _DakwahScheduleScreenState extends State<DakwahScheduleScreen> {
 
   String _dateKey(DateTime date) => DateFormat('yyyy-MM-dd').format(date);
 
+  bool _occursOnDate(Map<String, dynamic> item, DateTime day) {
+    final anchorStr = (item['date'] ?? '').toString();
+    final anchor = DateTime.tryParse(anchorStr);
+    if (anchor == null) return false;
+    final d = DateTime(day.year, day.month, day.day);
+    final a = DateTime(anchor.year, anchor.month, anchor.day);
+    if (d.isBefore(a)) return false;
+
+    final repeat = (item['repeatType'] ?? 'none').toString();
+    switch (repeat) {
+      case 'weekly':
+        return d.weekday == a.weekday;
+      case 'pasaran_35':
+        return d.weekday == a.weekday && _pasaranIndex(d) == _pasaranIndex(a);
+      case 'monthly':
+        return d.day == a.day;
+      default:
+        return d.year == a.year && d.month == a.month && d.day == a.day;
+    }
+  }
+
+  DateTime? _nextOccurrence(Map<String, dynamic> item) {
+    final anchor = DateTime.tryParse((item['date'] ?? '').toString());
+    if (anchor == null) return null;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final repeat = (item['repeatType'] ?? 'none').toString();
+    if (repeat == 'none') return anchor;
+
+    for (int offset = 0; offset <= 366; offset++) {
+      final candidate = today.add(Duration(days: offset));
+      if (_occursOnDate(item, candidate)) return candidate;
+    }
+    return anchor;
+  }
+
+  String _repeatLabel(String? repeatType, DateTime? anchor) {
+    switch (repeatType) {
+      case 'weekly':
+        return anchor != null ? 'Berulang tiap ${_dayNames[anchor.weekday - 1]}' : 'Rutin Mingguan';
+      case 'pasaran_35':
+        return anchor != null ? 'Berulang tiap ${getDayAndPasaran(anchor)} (35 hr)' : 'Selapanan (35 hari)';
+      case 'monthly':
+        return anchor != null ? 'Berulang tiap tanggal ${anchor.day}' : 'Rutin Bulanan';
+      default:
+        return 'Sekali saja';
+    }
+  }
+
   Future<void> _loadSchedules() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('saved_dakwah_schedules');
@@ -111,7 +160,7 @@ class _DakwahScheduleScreenState extends State<DakwahScheduleScreen> {
       return;
     }
 
-    final parsedDate = DateTime.tryParse(dateStr);
+    final parsedDate = _nextOccurrence(item);
     if (parsedDate == null) return;
 
     final daysBefore = (item['notifyDaysBefore'] as int?) ?? 1;
@@ -147,6 +196,7 @@ class _DakwahScheduleScreenState extends State<DakwahScheduleScreen> {
 
     bool notifyEnabled = existingSchedule?['notifyEnabled'] == true;
     int notifyDaysBefore = (existingSchedule?['notifyDaysBefore'] as int?) ?? 1;
+    String repeatType = (existingSchedule?['repeatType'] ?? 'none').toString();
     final customDaysCtrl = TextEditingController(text: '$notifyDaysBefore');
     TimeOfDay notifyTime = TimeOfDay(
       hour: (existingSchedule?['notifyHour'] as int?) ?? 7,
@@ -202,6 +252,22 @@ class _DakwahScheduleScreenState extends State<DakwahScheduleScreen> {
                     final t = await showTimePicker(context: ctx, initialTime: pickedTime);
                     if (t != null) setDialogState(() => pickedTime = t);
                   },
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  initialValue: repeatType,
+                  decoration: const InputDecoration(
+                    labelText: 'Pengulangan Jadwal',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: [
+                    const DropdownMenuItem(value: 'none', child: Text('Sekali saja')),
+                    DropdownMenuItem(value: 'weekly', child: Text('Setiap ${_dayNames[pickedDate.weekday - 1]} (Mingguan)')),
+                    DropdownMenuItem(value: 'pasaran_35', child: Text('Setiap ${getDayAndPasaran(pickedDate)} (Selapanan 35 hr)')),
+                    DropdownMenuItem(value: 'monthly', child: Text('Setiap Tanggal ${pickedDate.day} (Bulanan)')),
+                  ],
+                  onChanged: (v) => setDialogState(() => repeatType = v ?? 'none'),
                 ),
                 const Divider(height: 20),
                 SwitchListTile(
@@ -280,6 +346,7 @@ class _DakwahScheduleScreenState extends State<DakwahScheduleScreen> {
                   'clock': clockStr,
                   'time': '${getDayAndPasaran(pickedDate)}, $clockStr WIB',
                   'status': statusCtrl.text.trim(),
+                  'repeatType': repeatType,
                   'notifyEnabled': notifyEnabled,
                   'notifyDaysBefore': daysBeforeVal < 0 ? 0 : daysBeforeVal,
                   'notifyHour': notifyTime.hour,
@@ -339,9 +406,8 @@ class _DakwahScheduleScreenState extends State<DakwahScheduleScreen> {
   @override
   Widget build(BuildContext context) {
     final calendarDays = _buildCalendarDays(_focusedMonth);
-    final scheduledDates = _schedules.map((s) => (s['date'] ?? '').toString()).toSet();
     final selectedKey = _dateKey(_selectedDate);
-    final selectedSchedules = _schedules.where((s) => (s['date'] ?? '').toString() == selectedKey).toList();
+    final selectedSchedules = _schedules.where((s) => _occursOnDate(s, _selectedDate)).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -432,7 +498,7 @@ class _DakwahScheduleScreenState extends State<DakwahScheduleScreen> {
                         final inMonth = day.month == _focusedMonth.month;
                         final key = _dateKey(day);
                         final isSelected = key == selectedKey;
-                        final hasEvent = scheduledDates.contains(key);
+                        final hasEvent = _schedules.any((s) => _occursOnDate(s, day));
                         final isFriday = day.weekday == DateTime.friday;
 
                         return InkWell(
@@ -594,9 +660,22 @@ class _DakwahScheduleScreenState extends State<DakwahScheduleScreen> {
               children: [
                 const Icon(LucideIcons.calendar, size: 13, color: Color(0xFF0D7377)),
                 const SizedBox(width: 5),
-                Text('$jawaLabel • ${item['clock'] ?? ''}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                Expanded(child: Text('$jawaLabel • ${item['clock'] ?? ''}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
               ],
             ),
+            if ((item['repeatType'] ?? 'none') != 'none') ...[
+              const SizedBox(height: 3),
+              Row(
+                children: [
+                  const Icon(LucideIcons.repeat, size: 12, color: Colors.purple),
+                  const SizedBox(width: 5),
+                  Text(
+                    _repeatLabel(item['repeatType']?.toString(), parsed),
+                    style: const TextStyle(fontSize: 11, color: Colors.purple, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ],
             if ((item['location'] ?? '').toString().isNotEmpty) ...[
               const SizedBox(height: 3),
               Row(

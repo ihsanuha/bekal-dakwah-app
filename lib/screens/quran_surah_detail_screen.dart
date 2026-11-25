@@ -72,23 +72,59 @@ class _QuranSurahDetailScreenState extends State<QuranSurahDetailScreen> {
     }
   }
 
-  void _scrollToAyah(int ayahNumber) async {
+  Future<void> _scrollToAyah(int ayahNumber) async {
     final targetIdx = _verses.indexWhere((v) => v['ayah_number'] == ayahNumber);
-    if (targetIdx == -1) return;
+    if (targetIdx == -1 || !_scrollController.hasClients) return;
 
-    if (_scrollController.hasClients) {
-      final estimatedOffset = (targetIdx * 210.0).clamp(0.0, _scrollController.position.maxScrollExtent);
-      _scrollController.jumpTo(estimatedOffset);
-      await Future.delayed(const Duration(milliseconds: 80));
-    }
+    // Lakukan konvergensi beberapa langkah karena tinggi item ayat bervariasi
+    double currentEstimate = (targetIdx * 230.0).clamp(0.0, _scrollController.position.maxScrollExtent);
+    for (int attempt = 0; attempt < 8; attempt++) {
+      final existingCtx = _ayahKeys[ayahNumber]?.currentContext;
+      if (existingCtx != null && existingCtx.mounted) {
+        await Scrollable.ensureVisible(
+          existingCtx,
+          duration: const Duration(milliseconds: 280),
+          alignment: 0.08,
+        );
+        return;
+      }
 
-    final keyContext = _ayahKeys[ayahNumber]?.currentContext;
-    if (mounted && keyContext != null && keyContext.mounted) {
-      Scrollable.ensureVisible(
-        keyContext,
-        duration: const Duration(milliseconds: 350),
-        alignment: 0.1,
-      );
+      _scrollController.jumpTo(currentEstimate.clamp(0.0, _scrollController.position.maxScrollExtent));
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+
+      final afterCtx = _ayahKeys[ayahNumber]?.currentContext;
+      if (afterCtx != null && afterCtx.mounted) {
+        await Scrollable.ensureVisible(
+          afterCtx,
+          duration: const Duration(milliseconds: 280),
+          alignment: 0.08,
+        );
+        return;
+      }
+
+      // Cari indeks ayat yang sedang ter-render untuk koreksi arah scroll
+      int? minMountedIdx;
+      int? maxMountedIdx;
+      for (int i = 0; i < _verses.length; i++) {
+        final aNum = _verses[i]['ayah_number'] as int;
+        if (_ayahKeys[aNum]?.currentContext != null) {
+          minMountedIdx ??= i;
+          maxMountedIdx = i;
+        }
+      }
+
+      if (minMountedIdx != null && maxMountedIdx != null) {
+        if (targetIdx < minMountedIdx) {
+          final diff = minMountedIdx - targetIdx;
+          currentEstimate -= (diff * 220.0).clamp(300.0, 4000.0);
+        } else if (targetIdx > maxMountedIdx) {
+          final diff = targetIdx - maxMountedIdx;
+          currentEstimate += (diff * 220.0).clamp(300.0, 4000.0);
+        }
+      } else {
+        currentEstimate += 600.0;
+      }
     }
   }
 
