@@ -41,6 +41,8 @@ dependencies:
   lucide_icons: ^0.257.0
   path_provider: ^2.1.6
   webview_flutter: ^4.14.1
+  file_picker: ^10.1.2
+  open_filex: ^4.7.0
 
 dev_dependencies:
   flutter_test:

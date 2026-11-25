@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'screens/ai_chat_screen.dart';
 import 'screens/quran_list_screen.dart';
 import 'screens/hadith_screens.dart';
+import 'screens/hadith_webview_screen.dart';
 import 'screens/turath_screens.dart';
 import 'screens/fatwa_list_screen.dart';
 import 'screens/material_database_screen.dart';
@@ -151,7 +152,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     '• Teks Al-Qur\'an & Terjemah Kemenag (Tanzil / AlQuran Cloud)\n'
                     '• Tafsir Ibnu Katsir, As-Sa\'di, Al-Baghawi (Quran.com API) & Tafsir Kemenag (equran.id)\n'
                     '• Ensiklopedia Hadits & Takhrij (hdith.com)\n'
-                    '• Maktabah Kitab Ulama (turath.io)',
+                    '• Maktabah Kitab Ulama (turath.io)\n'
+                    '• Konsultasi Syariah (konsultasisyariah.com)',
                     style: TextStyle(fontSize: 13, height: 1.5),
                   ),
                   actions: [
@@ -277,6 +279,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 }),
                 _buildMenuCard(LucideIcons.scale, 'Database\nFatwa', Colors.indigo, () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const FatwaListScreen()));
+                }),
+                _buildMenuCard(LucideIcons.messageCircle, 'Konsultasi\nSyariah', Colors.cyan[700]!, () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const HadithWebViewScreen(
+                        url: 'https://konsultasisyariah.com/',
+                        title: 'Konsultasi Syariah',
+                      ),
+                    ),
+                  );
                 }),
                 _buildMenuCard(LucideIcons.folderArchive, 'Database\nMateri', Colors.green[700]!, () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const MaterialDatabaseScreen()));
