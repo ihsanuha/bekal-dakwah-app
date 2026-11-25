@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -208,12 +209,21 @@ class _TurathSearchScreenState extends State<TurathSearchScreen> {
                             : ListView.separated(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                 itemCount: _results.length,
-                                separatorBuilder: (_, __) => const Divider(height: 1),
+                                separatorBuilder: (_, _) => const Divider(height: 1),
                                 itemBuilder: (context, idx) {
                                   final item = _results[idx] as Map<String, dynamic>;
-                                  final meta = (item['meta'] as Map<String, dynamic>?) ?? {};
-                                  final bookId = (item['book_id'] as int?) ?? 0;
-                                  final pageId = (meta['page_id'] as int?) ?? 1;
+                                  final rawMeta = item['meta'];
+                                  Map<String, dynamic> meta = {};
+                                  if (rawMeta is Map<String, dynamic>) {
+                                    meta = rawMeta;
+                                  } else if (rawMeta is String && rawMeta.isNotEmpty) {
+                                    try {
+                                      final decoded = jsonDecode(rawMeta);
+                                      if (decoded is Map<String, dynamic>) meta = decoded;
+                                    } catch (_) {}
+                                  }
+                                  final bookId = int.tryParse('${item['book_id'] ?? 0}') ?? 0;
+                                  final pageId = int.tryParse('${meta['page_id'] ?? 1}') ?? 1;
                                   final bookName = (meta['book_name'] ?? 'Kitab #$bookId').toString();
                                   final authorName = (meta['author_name'] ?? '').toString();
                                   final vol = (meta['vol'] ?? '').toString();
@@ -379,7 +389,7 @@ class _TurathBookReaderScreenState extends State<TurathBookReaderScreen> {
                   : ListView.separated(
                       controller: ctrl,
                       itemCount: _headings.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      separatorBuilder: (_, _) => const Divider(height: 1),
                       itemBuilder: (_, i) {
                         final h = _headings[i] as Map<String, dynamic>;
                         final title = (h['title'] ?? '').toString();
