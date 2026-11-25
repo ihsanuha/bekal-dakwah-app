@@ -44,12 +44,12 @@ class ApiService {
     return 'Terjadi kendala pada server.';
   }
 
-  /// Cari Hadits & Takhrij langsung dari hdith.com (tanpa delay cold-start server)
+  /// Cari Hadits dari Ensiklopedia hdith.com (/encyclopedia/s?q=...)
   static Future<Map<String, dynamic>> searchHdithCom(String query) async {
     final cleanQuery = query.trim();
     if (cleanQuery.isEmpty) return {'count': 0, 'results': []};
 
-    final uri = Uri.parse('https://hdith.com/?s=${Uri.encodeQueryComponent(cleanQuery)}');
+    final uri = Uri.parse('https://hdith.com/encyclopedia/s?q=${Uri.encodeQueryComponent(cleanQuery)}');
     final res = await http.get(
       uri,
       headers: {'User-Agent': 'Mozilla/5.0 (Linux; Android 13) BekalDakwah/1.0'},

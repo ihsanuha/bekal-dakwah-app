@@ -6,6 +6,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import 'ai_chat_screen.dart';
+import 'hadith_webview_screen.dart';
 
 class HadithSearchScreen extends StatefulWidget {
   const HadithSearchScreen({super.key});
@@ -27,7 +28,6 @@ class _HadithSearchScreenState extends State<HadithSearchScreen> with SingleTick
   bool _loadingBooks = false;
   String? _errorMsg;
   String _activeQuery = '';
-  String _degreeFilter = 'Semua'; // 'Semua', 'Shahih', 'Dhaif'
   int _totalCount = 0;
 
   @override
@@ -86,7 +86,6 @@ class _HadithSearchScreenState extends State<HadithSearchScreen> with SingleTick
       _activeQuery = q;
       _isSearching = true;
       _errorMsg = null;
-      _degreeFilter = 'Semua';
     });
 
     try {
@@ -94,7 +93,6 @@ class _HadithSearchScreenState extends State<HadithSearchScreen> with SingleTick
       final rawList = (data['results'] as List?) ?? [];
       final parsed = rawList.map((e) => Map<String, dynamic>.from(e as Map)).toList();
 
-      // Simpan riwayat query
       final prefs = await SharedPreferences.getInstance();
       final updatedQueries = [q, ..._recentQueries.where((x) => x != q)].take(10).toList();
       await prefs.setStringList('hdith_recent_queries', updatedQueries);
@@ -118,11 +116,11 @@ class _HadithSearchScreenState extends State<HadithSearchScreen> with SingleTick
   }
 
   Future<void> _toggleSaveHadith(Map<String, dynamic> item) async {
-    final key = '${item['text']}_${item['source']}_${item['page']}';
-    final exists = _savedHadiths.any((s) => '${s['text']}_${s['source']}_${s['page']}' == key);
+    final key = '${item['entry_id']}_${item['book_id']}_${item['text']}';
+    final exists = _savedHadiths.any((s) => '${s['entry_id']}_${s['book_id']}_${s['text']}' == key);
     setState(() {
       if (exists) {
-        _savedHadiths.removeWhere((s) => '${s['text']}_${s['source']}_${s['page']}' == key);
+        _savedHadiths.removeWhere((s) => '${s['entry_id']}_${s['book_id']}_${s['text']}' == key);
       } else {
         _savedHadiths.insert(0, item);
       }
@@ -140,43 +138,39 @@ class _HadithSearchScreenState extends State<HadithSearchScreen> with SingleTick
   }
 
   bool _isSaved(Map<String, dynamic> item) {
-    final key = '${item['text']}_${item['source']}_${item['page']}';
-    return _savedHadiths.any((s) => '${s['text']}_${s['source']}_${s['page']}' == key);
+    final key = '${item['entry_id']}_${item['book_id']}_${item['text']}';
+    return _savedHadiths.any((s) => '${s['entry_id']}_${s['book_id']}_${s['text']}' == key);
   }
 
-  /// Klasifikasi derajat hadits dari field `degree` & `degree_cat` di hdith.com
-  _DegreeBadge _classifyDegree(Map<String, dynamic> item) {
-    final deg = (item['degree'] ?? '').toString();
-    final cat = item['degree_cat'];
-
-    if (deg.contains('صحيح') || deg.contains('متفق عليه') || deg.contains('أخرجه البخاري') || deg.contains('أخرجه مسلم')) {
-      return _DegreeBadge('Shahih', Colors.green[700]!);
-    }
-    if (deg.contains('حسن') || deg.contains('جيد') || deg.contains('لا بأس به') || deg.contains('ثابت')) {
-      return _DegreeBadge('Hasan/Kuat', Colors.teal[700]!);
-    }
-    if (cat == 0 ||
-        deg.contains('ضعيف') ||
-        deg.contains('موضوع') ||
-        deg.contains('منكر') ||
-        deg.contains('متروك') ||
-        deg.contains('باطل') ||
-        deg.contains('غير محفوظ') ||
-        deg.contains('لا أصل')) {
-      return _DegreeBadge('Lemah/Cacat', Colors.red[700]!);
-    }
-    return _DegreeBadge('Perlu Telaah', Colors.amber[800]!);
+  String _cleanText(String raw) {
+    return raw.replaceAll(RegExp(r'<[^>]*>'), '').trim();
   }
 
-  List<Map<String, dynamic>> get _filteredResults {
-    if (_degreeFilter == 'Semua') return _results;
-    return _results.where((item) {
-      final badge = _classifyDegree(item);
-      if (_degreeFilter == 'Shahih') {
-        return badge.label == 'Shahih' || badge.label == 'Hasan/Kuat';
+  String _buildHadithWebUrl(Map<String, dynamic> item) {
+    final bookId = item['book_id'];
+    final entryId = item['entry_id'];
+    if (bookId != null && entryId != null) {
+      return 'https://hdith.com/encyclopedia/book/b-$bookId/h/$entryId';
+    }
+    return 'https://hdith.com/encyclopedia/s?q=${Uri.encodeQueryComponent(_activeQuery)}';
+  }
+
+  List<TextSpan> _buildHighlightedSpans(String rawHtml, TextStyle normal, TextStyle highlight) {
+    final spans = <TextSpan>[];
+    final regex = RegExp(r'<mark>(.*?)</mark>', dotAll: true);
+    int lastEnd = 0;
+
+    for (final m in regex.allMatches(rawHtml)) {
+      if (m.start > lastEnd) {
+        spans.add(TextSpan(text: _cleanText(rawHtml.substring(lastEnd, m.start)), style: normal));
       }
-      return badge.label == 'Lemah/Cacat';
-    }).toList();
+      spans.add(TextSpan(text: _cleanText(m.group(1) ?? ''), style: highlight));
+      lastEnd = m.end;
+    }
+    if (lastEnd < rawHtml.length) {
+      spans.add(TextSpan(text: _cleanText(rawHtml.substring(lastEnd)), style: normal));
+    }
+    return spans;
   }
 
   void _openDetailSheet(Map<String, dynamic> item) {
@@ -186,9 +180,25 @@ class _HadithSearchScreenState extends State<HadithSearchScreen> with SingleTick
       backgroundColor: Colors.transparent,
       builder: (_) => _HadithDetailSheet(
         item: item,
-        badge: _classifyDegree(item),
+        cleanText: _cleanText((item['text'] ?? '').toString()),
+        webUrl: _buildHadithWebUrl(item),
         initiallySaved: _isSaved(item),
         onToggleSave: () => _toggleSaveHadith(item),
+      ),
+    );
+  }
+
+  void _openFullWebSearch() {
+    final url = _activeQuery.isNotEmpty
+        ? 'https://hdith.com/encyclopedia/s?q=${Uri.encodeQueryComponent(_activeQuery)}'
+        : 'https://hdith.com/encyclopedia';
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HadithWebViewScreen(
+          url: url,
+          title: _activeQuery.isNotEmpty ? 'hdith.com: $_activeQuery' : 'Ensiklopedia hdith.com',
+        ),
       ),
     );
   }
@@ -206,10 +216,16 @@ class _HadithSearchScreenState extends State<HadithSearchScreen> with SingleTick
             Text('612.548 Hadits • 245 Kitab', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(LucideIcons.globe, size: 19),
+            tooltip: 'Buka Halaman Lengkap di hdith.com',
+            onPressed: _openFullWebSearch,
+          ),
+        ],
       ),
       body: Column(
         children: [
-          // Search Bar Fokus Utama
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
             child: TextField(
@@ -249,35 +265,26 @@ class _HadithSearchScreenState extends State<HadithSearchScreen> with SingleTick
           ),
 
           if (isSearchMode) ...[
-            // Filter derajat ringkas
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-              child: Row(
-                children: [
-                  for (final f in ['Semua', 'Shahih', 'Dhaif'])
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: ChoiceChip(
-                        label: Text(
-                          f == 'Dhaif' ? "Dha'if/Lemah" : f,
-                          style: TextStyle(fontSize: 11.5, color: _degreeFilter == f ? Colors.white : Colors.black87),
-                        ),
-                        selected: _degreeFilter == f,
-                        selectedColor: const Color(0xFF0D7377),
-                        showCheckmark: false,
-                        visualDensity: VisualDensity.compact,
-                        onSelected: (_) => setState(() => _degreeFilter = f),
+            if (!_isSearching && _results.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                child: Row(
+                  children: [
+                    Text(
+                      'Total ditemukan: $_totalCount hasil (menampilkan ${_results.length})',
+                      style: TextStyle(fontSize: 11.5, color: Colors.grey[700], fontWeight: FontWeight.w500),
+                    ),
+                    const Spacer(),
+                    InkWell(
+                      onTap: _openFullWebSearch,
+                      child: const Text(
+                        'Buka di Web hdith.com →',
+                        style: TextStyle(fontSize: 11.5, color: Color(0xFF0D7377), fontWeight: FontWeight.bold),
                       ),
                     ),
-                  const Spacer(),
-                  if (!_isSearching && _results.isNotEmpty)
-                    Text(
-                      '${_filteredResults.length} / $_totalCount',
-                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
             const Divider(height: 1),
             Expanded(child: _buildSearchResults()),
           ] else ...[
@@ -332,26 +339,39 @@ class _HadithSearchScreenState extends State<HadithSearchScreen> with SingleTick
       );
     }
 
-    final list = _filteredResults;
-    if (list.isEmpty) {
+    if (_results.isEmpty) {
       return const Center(
-        child: Text('Tidak ada hadits yang cocok dengan filter ini.', style: TextStyle(color: Colors.grey)),
+        child: Text('Tidak ada hadits ditemukan.', style: TextStyle(color: Colors.grey)),
       );
     }
 
     return ListView.separated(
-      itemCount: list.length,
+      itemCount: _results.length,
       separatorBuilder: (ctx, idx) => Divider(height: 1, color: Colors.grey[200]),
-      itemBuilder: (ctx, idx) => _buildCompactHadithRow(list[idx]),
+      itemBuilder: (ctx, idx) => _buildCompactHadithRow(_results[idx]),
     );
   }
 
-  /// Baris ringkas (padat & cepat dipindai, memuat 6-8 hadits per layar)
   Widget _buildCompactHadithRow(Map<String, dynamic> item) {
-    final badge = _classifyDegree(item);
-    final rawi = (item['rawi'] ?? '').toString();
-    final source = (item['source'] ?? '').toString();
-    final muhaddith = (item['muhaddith'] ?? '').toString();
+    final rawText = (item['text'] ?? '').toString();
+    final book = (item['book'] ?? '').toString();
+    final chapter = (item['chapter'] ?? '').toString();
+    final numbering = (item['numbering'] ?? '').toString().trim();
+
+    const normalStyle = TextStyle(
+      fontFamily: 'ThmanyahText',
+      fontSize: 17,
+      height: 1.7,
+      color: Colors.black87,
+    );
+    final highlightStyle = TextStyle(
+      fontFamily: 'ThmanyahText',
+      fontSize: 17,
+      height: 1.7,
+      fontWeight: FontWeight.bold,
+      color: const Color(0xFF0D7377),
+      backgroundColor: const Color(0xFFD4A843).withValues(alpha: 0.3),
+    );
 
     return InkWell(
       onTap: () => _openDetailSheet(item),
@@ -360,34 +380,24 @@ class _HadithSearchScreenState extends State<HadithSearchScreen> with SingleTick
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              (item['text'] ?? '').toString(),
+            RichText(
               textAlign: TextAlign.right,
               textDirection: TextDirection.rtl,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.amiri(fontSize: 18, height: 1.65, color: Colors.black87),
+              text: TextSpan(children: _buildHighlightedSpans(rawText, normalStyle, highlightStyle)),
             ),
             const SizedBox(height: 6),
             Row(
               children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(color: badge.color, shape: BoxShape.circle),
-                ),
+                const Icon(LucideIcons.bookOpen, size: 13, color: Color(0xFF0D7377)),
                 const SizedBox(width: 5),
-                Text(
-                  badge.label,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: badge.color),
-                ),
-                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '$source • $muhaddith${rawi.isNotEmpty ? " • $rawi" : ""}',
+                    '$book${numbering.isNotEmpty ? " (No. $numbering)" : ""}${chapter.isNotEmpty && chapter != "—" ? " • $chapter" : ""}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                    style: TextStyle(fontSize: 11.5, color: Colors.grey[700]),
                   ),
                 ),
                 const Icon(LucideIcons.chevronRight, size: 15, color: Colors.grey),
@@ -414,7 +424,10 @@ class _HadithSearchScreenState extends State<HadithSearchScreen> with SingleTick
               runSpacing: 0,
               children: _recentQueries.map((q) {
                 return ActionChip(
-                  label: Text(q, style: GoogleFonts.amiri(fontSize: 14, color: const Color(0xFF0D7377))),
+                  label: Text(
+                    q,
+                    style: const TextStyle(fontFamily: 'ThmanyahText', fontSize: 15, color: Color(0xFF0D7377)),
+                  ),
                   backgroundColor: const Color(0xFF0D7377).withValues(alpha: 0.07),
                   side: BorderSide.none,
                   visualDensity: VisualDensity.compact,
@@ -433,7 +446,7 @@ class _HadithSearchScreenState extends State<HadithSearchScreen> with SingleTick
             padding: EdgeInsets.all(32.0),
             child: Center(
               child: Text(
-                'Ketik kata Arab di kolom pencarian atas untuk mencari hadits & takhrij di hdith.com.\nHadits yang Anda simpan akan muncul di sini.',
+                'Ketik kata Arab di kolom pencarian atas untuk mencari hadits di hdith.com.\nHadits yang Anda simpan akan muncul di sini.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey, fontSize: 13),
               ),
@@ -467,7 +480,7 @@ class _HadithSearchScreenState extends State<HadithSearchScreen> with SingleTick
           title: Text(
             (b['title'] ?? '').toString(),
             textDirection: TextDirection.rtl,
-            style: GoogleFonts.amiri(fontSize: 17, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontFamily: 'ThmanyahText', fontSize: 17, fontWeight: FontWeight.bold),
           ),
           subtitle: Text(
             '${b['author'] ?? ''} (${b['era'] ?? ''}) • ${b['section'] ?? ''}',
@@ -477,27 +490,37 @@ class _HadithSearchScreenState extends State<HadithSearchScreen> with SingleTick
             '${b['count'] ?? ''} hadits',
             style: const TextStyle(fontSize: 11, color: Color(0xFF0D7377), fontWeight: FontWeight.w600),
           ),
+          onTap: () {
+            final slug = (b['slug'] ?? '').toString();
+            if (slug.isNotEmpty) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => HadithWebViewScreen(
+                    url: 'https://hdith.com/encyclopedia/book/$slug',
+                    title: (b['title'] ?? 'Kitab Hadits').toString(),
+                  ),
+                ),
+              );
+            }
+          },
         );
       },
     );
   }
 }
 
-class _DegreeBadge {
-  final String label;
-  final Color color;
-  _DegreeBadge(this.label, this.color);
-}
-
 class _HadithDetailSheet extends StatefulWidget {
   final Map<String, dynamic> item;
-  final _DegreeBadge badge;
+  final String cleanText;
+  final String webUrl;
   final bool initiallySaved;
   final VoidCallback onToggleSave;
 
   const _HadithDetailSheet({
     required this.item,
-    required this.badge,
+    required this.cleanText,
+    required this.webUrl,
     required this.initiallySaved,
     required this.onToggleSave,
   });
@@ -517,12 +540,9 @@ class _HadithDetailSheetState extends State<_HadithDetailSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final text = (widget.item['text'] ?? '').toString();
-    final rawi = (widget.item['rawi'] ?? '-').toString();
-    final muhaddith = (widget.item['muhaddith'] ?? '-').toString();
-    final source = (widget.item['source'] ?? '-').toString();
-    final page = (widget.item['page'] ?? '-').toString();
-    final degree = (widget.item['degree'] ?? '-').toString();
+    final book = (widget.item['book'] ?? '-').toString();
+    final chapter = (widget.item['chapter'] ?? '-').toString();
+    final numbering = (widget.item['numbering'] ?? '-').toString().trim();
 
     return Container(
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
@@ -539,24 +559,21 @@ class _HadithDetailSheetState extends State<_HadithDetailSheet> {
             padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: widget.badge.color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    widget.badge.label,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: widget.badge.color),
-                  ),
-                ),
-                const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    '$source ($page)',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[700], fontWeight: FontWeight.w500),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        book,
+                        style: const TextStyle(fontFamily: 'ThmanyahText', fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0D7377)),
+                      ),
+                      Text(
+                        '${numbering.isNotEmpty ? "No. $numbering • " : ""}$chapter',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                      ),
+                    ],
                   ),
                 ),
                 IconButton(
@@ -569,11 +586,11 @@ class _HadithDetailSheetState extends State<_HadithDetailSheet> {
                 ),
                 IconButton(
                   icon: const Icon(LucideIcons.copy, size: 18, color: Colors.grey),
-                  tooltip: 'Salin Hadits & Takhrij',
+                  tooltip: 'Salin Hadits',
                   onPressed: () {
-                    final formatted = '$text\n\nPerawi: $rawi\nSumber: $source ($page)\nHukum ($muhaddith): $degree';
+                    final formatted = '${widget.cleanText}\n\nSumber: $book (No. $numbering)\nBab: $chapter';
                     Clipboard.setData(ClipboardData(text: formatted));
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Hadits & takhrij tersalin')));
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Hadits tersalin')));
                   },
                 ),
               ],
@@ -587,41 +604,53 @@ class _HadithDetailSheetState extends State<_HadithDetailSheet> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   SelectableText(
-                    text,
+                    widget.cleanText,
                     textAlign: TextAlign.right,
                     textDirection: TextDirection.rtl,
-                    style: GoogleFonts.amiri(fontSize: 21, height: 1.95, color: Colors.black87),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.grey[200]!),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _metaRow('Perawi', rawi),
-                        _metaRow('Muhaddits', muhaddith),
-                        _metaRow('Kitab & Hal', '$source ($page)'),
-                        _metaRow('Takhrij / Hukum', degree),
-                      ],
+                    style: const TextStyle(
+                      fontFamily: 'ThmanyahText',
+                      fontSize: 20,
+                      height: 1.9,
+                      color: Colors.black87,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
+
+                  // Tombol Utama: Buka Halaman Lengkap di hdith.com (Silsilah Isnad, Syarah, Takhrij, Syawahid)
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF0D7377),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    icon: const Icon(LucideIcons.languages, size: 17, color: Color(0xFFD4A843)),
+                    icon: const Icon(LucideIcons.externalLink, size: 17, color: Color(0xFFD4A843)),
+                    label: const Text('Buka Halaman Lengkap di hdith.com'),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => HadithWebViewScreen(
+                            url: widget.webUrl,
+                            title: '$book ${numbering.isNotEmpty ? "#$numbering" : ""}',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10),
+
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF0D7377),
+                      side: const BorderSide(color: Color(0xFF0D7377)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    icon: const Icon(LucideIcons.languages, size: 17),
                     label: const Text('Terjemahkan & Jelaskan Syarah dengan AI'),
                     onPressed: () {
                       final prompt =
-                          'Terjemahkan hadits berikut ke dalam bahasa Indonesia dan jelaskan syarah serta faedah ilmiahnya menurut ulama Ahlus Sunnah:\n\nMatan: $text\nPerawi: $rawi\nKitab: $source ($page)\nHukum ($muhaddith): $degree';
+                          'Terjemahkan hadits berikut ke dalam bahasa Indonesia dan jelaskan takhrij/derajat serta faedah ilmiahnya menurut ulama Ahlus Sunnah:\n\nMatan: ${widget.cleanText}\nKitab: $book (No. $numbering)\nBab: $chapter';
                       Navigator.pop(context);
                       Navigator.push(
                         context,
@@ -631,28 +660,6 @@ class _HadithDetailSheetState extends State<_HadithDetailSheet> {
                   ),
                 ],
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _metaRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 110,
-            child: Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500)),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              textDirection: value.contains(RegExp(r'[\u0600-\u06FF]')) ? TextDirection.rtl : TextDirection.ltr,
-              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.black87),
             ),
           ),
         ],

@@ -40,6 +40,7 @@ dependencies:
   shared_preferences: ^2.5.5
   lucide_icons: ^0.257.0
   path_provider: ^2.1.6
+  webview_flutter: ^4.14.1
 
 dev_dependencies:
   flutter_test:
@@ -65,6 +66,13 @@ flutter:
 
   assets:
     - assets/db/quran_id.db
+
+  fonts:
+    - family: ThmanyahText
+      fonts:
+        - asset: assets/fonts/ThmanyahText-Regular.ttf
+        - asset: assets/fonts/ThmanyahText-Bold.ttf
+          weight: 700
 
   # To add assets to your application, add an assets section, like this:
   # assets:
