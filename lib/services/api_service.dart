@@ -107,4 +107,34 @@ class ApiService {
     } catch (_) {}
     return [];
   }
+
+  /// Cari kitab & nash ulama di Maktabah Turath melalui backend (memakai TURATH_API_KEY)
+  static Future<Map<String, dynamic>> searchTurath(String query, {int page = 1}) async {
+    final cleanQuery = query.trim();
+    if (cleanQuery.isEmpty) return {'count': 0, 'data': []};
+    final uri = Uri.parse('${AppConfig.turathSearch}?q=${Uri.encodeQueryComponent(cleanQuery)}&page=$page');
+    final res = await http.get(uri).timeout(const Duration(seconds: 25));
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception('HTTP ${res.statusCode} dari Turath');
+  }
+
+  /// Ambil metadata & daftar isi kitab Turath
+  static Future<Map<String, dynamic>> getTurathBook(int bookId) async {
+    final res = await http.get(Uri.parse(AppConfig.turathBook(bookId))).timeout(const Duration(seconds: 25));
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception('HTTP ${res.statusCode} saat mengambil detail kitab');
+  }
+
+  /// Ambil isi halaman tertentu dari kitab Turath
+  static Future<Map<String, dynamic>> getTurathPage(int bookId, int pg) async {
+    final res = await http.get(Uri.parse(AppConfig.turathPage(bookId, pg))).timeout(const Duration(seconds: 25));
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception('HTTP ${res.statusCode} saat mengambil halaman kitab');
+  }
 }

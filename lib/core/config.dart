@@ -11,4 +11,7 @@ class AppConfig {
   static const String hadithSearch = '$baseUrl/hadith/search';
   static const String hadithBooks = '$baseUrl/hadith/books';
   static const String fatwaList = '$baseUrl/fatwa/list';
+  static const String turathSearch = '$baseUrl/turath/search';
+  static String turathBook(int bookId) => '$baseUrl/turath/book/$bookId';
+  static String turathPage(int bookId, int pg) => '$baseUrl/turath/page?book_id=$bookId&pg=$pg';
 }

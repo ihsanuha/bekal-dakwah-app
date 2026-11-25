@@ -143,7 +143,11 @@ class _HadithSearchScreenState extends State<HadithSearchScreen> with SingleTick
   }
 
   String _cleanText(String raw) {
-    return raw.replaceAll(RegExp(r'<[^>]*>'), '').trim();
+    return raw
+        .replaceAll(RegExp(r'<[^>]*>'), '')
+        .replaceAll(RegExp(r'[\w\u0600-\u06FF_]+["\x27]?<'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 
   String _buildHadithWebUrl(Map<String, dynamic> item) {

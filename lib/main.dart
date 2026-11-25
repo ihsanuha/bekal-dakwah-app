@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'screens/ai_chat_screen.dart';
 import 'screens/quran_list_screen.dart';
 import 'screens/hadith_screens.dart';
+import 'screens/turath_screens.dart';
 import 'screens/fatwa_list_screen.dart';
 import 'screens/material_database_screen.dart';
 import 'screens/dakwah_schedule_screen.dart';
@@ -149,7 +150,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     '• Mushaf Madani, ayahinfo, & Mesin Pencari Arab diadaptasi dari quran/quran_android (GPL-3.0) & files.quran.app\n'
                     '• Teks Al-Qur\'an & Terjemah Kemenag (Tanzil / AlQuran Cloud)\n'
                     '• Tafsir Ibnu Katsir, As-Sa\'di, Al-Baghawi (Quran.com API) & Tafsir Kemenag (equran.id)\n'
-                    '• Ensiklopedia Hadits & Takhrij (hdith.com)',
+                    '• Ensiklopedia Hadits & Takhrij (hdith.com)\n'
+                    '• Maktabah Kitab Ulama (turath.io)',
                     style: TextStyle(fontSize: 13, height: 1.5),
                   ),
                   actions: [
@@ -269,6 +271,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 }),
                 _buildMenuCard(LucideIcons.scrollText, 'Hadits &\nTakhrij', Colors.amber[800]!, () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const HadithSearchScreen()));
+                }),
+                _buildMenuCard(LucideIcons.library, 'Maktabah\nTurath', Colors.brown[600]!, () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const TurathSearchScreen()));
                 }),
                 _buildMenuCard(LucideIcons.scale, 'Database\nFatwa', Colors.indigo, () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const FatwaListScreen()));
