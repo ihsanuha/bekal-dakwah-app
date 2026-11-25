@@ -10,37 +10,8 @@ class ApiService {
       if (res.statusCode == 200) {
         return jsonDecode(res.body);
       }
-    } catch (e) {
-      print('[ApiService] Error getPrayerTimes: $e');
-    }
+    } catch (_) {}
     return null;
-  }
-
-  /// Ambil daftar 114 surah
-  static Future<List<dynamic>> getSurahList() async {
-    try {
-      final res = await http.get(Uri.parse(AppConfig.quranSurah));
-      if (res.statusCode == 200) {
-        return jsonDecode(res.body);
-      }
-    } catch (e) {
-      print('[ApiService] Error getSurahList: $e');
-    }
-    return [];
-  }
-
-  /// Ambil ayat-ayat surah
-  static Future<List<dynamic>> getSurahVerses(int chapterId) async {
-    try {
-      final res = await http.get(Uri.parse(AppConfig.quranVerses(chapterId)));
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        return data['verses'] ?? [];
-      }
-    } catch (e) {
-      print('[ApiService] Error getSurahVerses: $e');
-    }
-    return [];
   }
 
   /// Chat dengan AI Asisten Manhaj Salaf
@@ -73,47 +44,52 @@ class ApiService {
     return 'Terjadi kendala pada server.';
   }
 
-  /// Hadits Categories
-  static Future<List<dynamic>> getHadithCategories() async {
-    try {
-      final res = await http.get(Uri.parse(AppConfig.hadithCategories));
-      if (res.statusCode == 200) {
-        return jsonDecode(res.body);
-      }
-    } catch (e) {
-      print('[ApiService] Error getHadithCategories: $e');
+  /// Cari Hadits & Takhrij langsung dari hdith.com (tanpa delay cold-start server)
+  static Future<Map<String, dynamic>> searchHdithCom(String query) async {
+    final cleanQuery = query.trim();
+    if (cleanQuery.isEmpty) return {'count': 0, 'results': []};
+
+    final uri = Uri.parse('https://hdith.com/?s=${Uri.encodeQueryComponent(cleanQuery)}');
+    final res = await http.get(
+      uri,
+      headers: {'User-Agent': 'Mozilla/5.0 (Linux; Android 13) BekalDakwah/1.0'},
+    ).timeout(const Duration(seconds: 20));
+
+    if (res.statusCode == 200) {
+      final props = _extractInertiaProps(res.body);
+      return {
+        'count': props['count'] ?? 0,
+        'results': (props['results'] as List?) ?? [],
+      };
     }
+    throw Exception('HTTP ${res.statusCode} dari hdith.com');
+  }
+
+  /// Ambil daftar kitab hadits dari ensiklopedia hdith.com
+  static Future<List<dynamic>> getHdithComBooks() async {
+    try {
+      final res = await http.get(
+        Uri.parse('https://hdith.com/encyclopedia/books'),
+        headers: {'User-Agent': 'Mozilla/5.0 (Linux; Android 13) BekalDakwah/1.0'},
+      ).timeout(const Duration(seconds: 20));
+      if (res.statusCode == 200) {
+        final props = _extractInertiaProps(res.body);
+        return (props['books'] as List?) ?? [];
+      }
+    } catch (_) {}
     return [];
   }
 
-  /// Hadits List by Category dengan pagination (halaman 1 s/d selesai, per_page 50)
-  static Future<Map<String, dynamic>> getHadithListPaginated(int categoryId, {int page = 1, int perPage = 30}) async {
-    try {
-      final res = await http.get(Uri.parse('${AppConfig.hadithList}?category_id=$categoryId&page=$page&per_page=$perPage'));
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        return {
-          'data': data['data'] ?? [],
-          'meta': data['meta'] ?? {}
-        };
+  static Map<String, dynamic> _extractInertiaProps(String htmlBody) {
+    final regex = RegExp(r'<script[^>]*type=["\x27]application/json["\x27][^>]*>(.*?)</script>', dotAll: true);
+    final match = regex.firstMatch(htmlBody);
+    if (match != null) {
+      final decoded = jsonDecode(match.group(1)!);
+      if (decoded is Map<String, dynamic>) {
+        return (decoded['props'] as Map<String, dynamic>?) ?? {};
       }
-    } catch (e) {
-      print('[ApiService] Error getHadithListPaginated: $e');
     }
-    return {'data': [], 'meta': {}};
-  }
-
-  /// Hadits Detail (Matan, Takhrij, Syarah)
-  static Future<Map<String, dynamic>?> getHadithDetail(int hadithId) async {
-    try {
-      final res = await http.get(Uri.parse(AppConfig.hadithDetail(hadithId)));
-      if (res.statusCode == 200) {
-        return jsonDecode(res.body);
-      }
-    } catch (e) {
-      print('[ApiService] Error getHadithDetail: $e');
-    }
-    return null;
+    return {};
   }
 
   /// Fatwa List
@@ -121,16 +97,14 @@ class ApiService {
     try {
       String url = AppConfig.fatwaList;
       if (query != null && query.isNotEmpty) {
-        url += '?q=$query';
+        url += '?q=${Uri.encodeQueryComponent(query)}';
       }
       final res = await http.get(Uri.parse(url));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         return data['data'] ?? [];
       }
-    } catch (e) {
-      print('[ApiService] Error getFatwaList: $e');
-    }
+    } catch (_) {}
     return [];
   }
 }

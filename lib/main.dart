@@ -149,7 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     '• Mushaf Madani, ayahinfo, & Mesin Pencari Arab diadaptasi dari quran/quran_android (GPL-3.0) & files.quran.app\n'
                     '• Teks Al-Qur\'an & Terjemah Kemenag (Tanzil / AlQuran Cloud)\n'
                     '• Tafsir Ibnu Katsir, As-Sa\'di, Al-Baghawi (Quran.com API) & Tafsir Kemenag (equran.id)\n'
-                    '• Ensiklopedia Hadits & Syarah (HadeethEnc)',
+                    '• Ensiklopedia Hadits & Takhrij (hdith.com)',
                     style: TextStyle(fontSize: 13, height: 1.5),
                   ),
                   actions: [
@@ -268,7 +268,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const AIChatScreen()));
                 }),
                 _buildMenuCard(LucideIcons.scrollText, 'Hadits &\nTakhrij', Colors.amber[800]!, () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const HadithCategoriesScreen()));
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const HadithSearchScreen()));
                 }),
                 _buildMenuCard(LucideIcons.scale, 'Database\nFatwa', Colors.indigo, () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const FatwaListScreen()));

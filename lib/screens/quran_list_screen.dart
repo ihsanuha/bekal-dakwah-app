@@ -26,7 +26,7 @@ class _QuranListScreenState extends State<QuranListScreen> with SingleTickerProv
 
   bool _isLoadingData = true;
   bool _isSearching = false;
-  bool _preferMushafMode = true;
+  bool _preferMushafMode = false;
   int _lastMushafPage = 1;
   int _downloadedPagesCount = 0;
 
@@ -67,7 +67,7 @@ class _QuranListScreenState extends State<QuranListScreen> with SingleTickerProv
           _juzList = results[1] as List<Map<String, dynamic>>;
           _bookmarks = results[2] as List<Map<String, dynamic>>;
           _lastMushafPage = prefs.getInt('last_mushaf_page') ?? 1;
-          _preferMushafMode = prefs.getBool('prefer_mushaf_mode') ?? true;
+          _preferMushafMode = prefs.getBool('prefer_mushaf_mode') ?? false;
           _downloadedPagesCount = (status['downloaded_pages'] as int?) ?? 0;
           _isLoadingData = false;
         });
