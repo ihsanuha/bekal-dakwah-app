@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -6,9 +7,13 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'ai_chat_screen.dart';
-import 'hadith_webview_screen.dart';
+import 'pdf_reader_screen.dart';
 
 class FatwaListScreen extends StatefulWidget {
   const FatwaListScreen({super.key});
@@ -462,12 +467,45 @@ class _FatwaListScreenState extends State<FatwaListScreen> with SingleTickerProv
                   return ActionChip(
                     avatar: const Icon(LucideIcons.fileDown, size: 15),
                     label: Text('$ext (${att['size'] ?? ''})', style: const TextStyle(fontSize: 11)),
-                    onPressed: () {
-                      if (url.isNotEmpty) {
+                    onPressed: () async {
+                      if (url.isEmpty) return;
+                      final appDir = await getApplicationDocumentsDirectory();
+                      final isPdf = ext.toLowerCase() == 'pdf';
+                      final dir = Directory(
+                        isPdf ? p.join(appDir.path, 'pustaka_ilmu', 'IslamHouse') : p.join(appDir.path, 'islamhouse_files'),
+                      );
+                      if (!await dir.exists()) await dir.create(recursive: true);
+                      final safeTitle = title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim();
+                      final shortTitle = safeTitle.length > 50 ? safeTitle.substring(0, 50) : safeTitle;
+                      final localPath = p.join(dir.path, '$shortTitle.${ext.toLowerCase()}');
+                      final file = File(localPath);
+                      if (!await file.exists()) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Mengunduh $ext...')));
+                        }
+                        final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 40));
+                        if (res.statusCode == 200) {
+                          await file.writeAsBytes(res.bodyBytes);
+                        } else {
+                          return;
+                        }
+                      }
+                      if (!mounted) return;
+                      if (isPdf) {
+                        final prefs = await SharedPreferences.getInstance();
+                        final raw = prefs.getString('pustaka_pdf_progress');
+                        int lastPage = 1;
+                        if (raw != null) {
+                          final map = jsonDecode(raw) as Map<String, dynamic>;
+                          lastPage = (map[localPath]?['lastPage'] as int?) ?? 1;
+                        }
+                        if (!mounted) return;
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => HadithWebViewScreen(url: url, title: title)),
+                          MaterialPageRoute(builder: (_) => PdfReaderScreen(filePath: localPath, title: title, initialPage: lastPage)),
                         );
+                      } else {
+                        await OpenFilex.open(localPath);
                       }
                     },
                   );

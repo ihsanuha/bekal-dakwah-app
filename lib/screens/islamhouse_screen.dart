@@ -1,9 +1,14 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:lucide_icons/lucide_icons.dart';
-import 'hadith_webview_screen.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'pdf_reader_screen.dart';
 
 class IslamHouseScreen extends StatefulWidget {
   const IslamHouseScreen({super.key});
@@ -21,6 +26,7 @@ class _IslamHouseScreenState extends State<IslamHouseScreen> with SingleTickerPr
   bool _isGlobalSearch = false;
   List<dynamic> _items = [];
   final Map<String, List<dynamic>> _globalCache = {};
+  Map<String, Map<String, dynamic>> _pdfProgressMap = {};
   String _filterQuery = '';
   final TextEditingController _searchCtrl = TextEditingController();
 
@@ -37,6 +43,7 @@ class _IslamHouseScreenState extends State<IslamHouseScreen> with SingleTickerPr
         _loadItems(page: 1);
       }
     });
+    _loadProgressMap();
     _loadItems(page: 1);
   }
 
@@ -45,6 +52,17 @@ class _IslamHouseScreenState extends State<IslamHouseScreen> with SingleTickerPr
     _tabController.dispose();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadProgressMap() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('pustaka_pdf_progress');
+    if (raw != null && mounted) {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      setState(() {
+        _pdfProgressMap = decoded.map((k, v) => MapEntry(k, Map<String, dynamic>.from(v)));
+      });
+    }
   }
 
   Future<void> _loadItems({required int page}) async {
@@ -91,9 +109,9 @@ class _IslamHouseScreenState extends State<IslamHouseScreen> with SingleTickerPr
     if (!_globalCache.containsKey(cacheKey)) {
       final pagesToFetch = _totalPages.clamp(1, 10);
       final futures = List.generate(pagesToFetch, (i) async {
-        final p = i + 1;
+        final pNum = i + 1;
         try {
-          final url = 'https://api3.islamhouse.com/v3/paV29H2Gm56kvLPy/main/$type/$_lang/$_lang/$p/50/json';
+          final url = 'https://api3.islamhouse.com/v3/paV29H2Gm56kvLPy/main/$type/$_lang/$_lang/$pNum/50/json';
           final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 20));
           if (res.statusCode == 200) {
             final d = jsonDecode(res.body) as Map<String, dynamic>;
@@ -111,6 +129,131 @@ class _IslamHouseScreenState extends State<IslamHouseScreen> with SingleTickerPr
         _items = _globalCache[cacheKey] ?? [];
         _loading = false;
       });
+    }
+  }
+
+  Future<String> _localPathForAttachment(String url, String title, String ext) async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final isPdf = ext.toLowerCase() == 'pdf';
+    final dir = Directory(
+      isPdf ? p.join(appDir.path, 'pustaka_ilmu', 'IslamHouse') : p.join(appDir.path, 'islamhouse_files'),
+    );
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    final urlName = Uri.tryParse(url)?.pathSegments.lastOrNull ?? '';
+    final cleanTitle = title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim();
+    final safeBase = cleanTitle.isNotEmpty
+        ? (cleanTitle.length > 60 ? cleanTitle.substring(0, 60) : cleanTitle)
+        : (urlName.isNotEmpty ? p.basenameWithoutExtension(urlName) : 'file');
+    final fileExt = ext.isNotEmpty ? '.${ext.toLowerCase()}' : p.extension(urlName);
+    return p.join(dir.path, '$safeBase$fileExt');
+  }
+
+  Future<void> _downloadAndOpenAttachment(String url, String title, String ext) async {
+    final localPath = await _localPathForAttachment(url, title, ext);
+    final file = File(localPath);
+
+    if (!await file.exists()) {
+      if (!mounted) return;
+      double? progress;
+      bool cancelled = false;
+      StateSetter? setDialogState;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => StatefulBuilder(
+          builder: (_, s) {
+            setDialogState = s;
+            return AlertDialog(
+              title: Text('Mengunduh $ext...', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LinearProgressIndicator(value: progress, color: const Color(0xFF0D7377)),
+                  const SizedBox(height: 10),
+                  Text(
+                    progress != null ? '${(progress! * 100).round()}%' : 'Menghubungkan ke server IslamHouse...',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    cancelled = true;
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('Batal'),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      try {
+        final req = http.Request('GET', Uri.parse(url));
+        final streamed = await req.send().timeout(const Duration(seconds: 60));
+        if (streamed.statusCode != 200) {
+          throw Exception('HTTP ${streamed.statusCode}');
+        }
+        final total = streamed.contentLength ?? 0;
+        final sink = file.openWrite();
+        int received = 0;
+        await for (final chunk in streamed.stream) {
+          if (cancelled) {
+            await sink.close();
+            if (await file.exists()) await file.delete();
+            return;
+          }
+          sink.add(chunk);
+          received += chunk.length;
+          if (total > 0 && setDialogState != null) {
+            setDialogState!(() => progress = received / total);
+          }
+        }
+        await sink.close();
+        if (mounted && Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+      } catch (e) {
+        if (await file.exists()) await file.delete();
+        if (mounted && Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal mengunduh file: $e')),
+          );
+        }
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    if (ext.toLowerCase() == 'pdf') {
+      final prog = _pdfProgressMap[localPath];
+      final lastPage = (prog?['lastPage'] as int?) ?? 1;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PdfReaderScreen(
+            filePath: localPath,
+            title: title,
+            initialPage: lastPage,
+          ),
+        ),
+      );
+      await _loadProgressMap();
+    } else {
+      final res = await OpenFilex.open(localPath);
+      if (res.type != ResultType.done && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('File tersimpan di aplikasi, namun gagal membuka: ${res.message}')),
+        );
+      }
     }
   }
 
@@ -282,7 +425,7 @@ class _IslamHouseScreenState extends State<IslamHouseScreen> with SingleTickerPr
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (_) => Padding(
+      builder: (sheetCtx) => Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -292,31 +435,64 @@ class _IslamHouseScreenState extends State<IslamHouseScreen> with SingleTickerPr
             const SizedBox(height: 8),
             if (desc.isNotEmpty || fullDesc.isNotEmpty)
               ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 220),
+                constraints: const BoxConstraints(maxHeight: 200),
                 child: SingleChildScrollView(
                   child: Text(fullDesc.isNotEmpty ? fullDesc : desc, style: const TextStyle(fontSize: 13, height: 1.5)),
                 ),
               ),
             const SizedBox(height: 12),
             if (attachments.isNotEmpty) ...[
-              const Text('Buka / Unduh Lampiran:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const Text('Buka di Aplikasi / Unduh Lampiran:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
               ...attachments.map((att) {
                 final url = (att['url'] ?? '').toString();
                 final ext = (att['extension_type'] ?? 'FILE').toString();
                 final size = (att['size'] ?? '').toString();
-                return ListTile(
-                  dense: true,
-                  leading: const Icon(LucideIcons.fileDown, color: Color(0xFF0D7377)),
-                  title: Text('$ext • $size'),
-                  subtitle: Text(url, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
-                  onTap: () {
-                    if (url.isNotEmpty) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => HadithWebViewScreen(url: url, title: title)),
-                      );
-                    }
+                return FutureBuilder<String>(
+                  future: _localPathForAttachment(url, title, ext),
+                  builder: (_, snap) {
+                    final localPath = snap.data ?? '';
+                    final prog = localPath.isNotEmpty ? _pdfProgressMap[localPath] : null;
+                    final totalPages = (prog?['totalPages'] as int?) ?? 0;
+                    final lastPage = (prog?['lastPage'] as int?) ?? 0;
+                    final percent = (prog?['percent'] as int?) ?? 0;
+
+                    return ListTile(
+                      dense: true,
+                      leading: Icon(
+                        ext.toLowerCase() == 'pdf' ? LucideIcons.bookOpenCheck : LucideIcons.fileDown,
+                        color: ext.toLowerCase() == 'pdf' ? Colors.red[600] : const Color(0xFF0D7377),
+                      ),
+                      title: Text('$ext • $size'),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            ext.toLowerCase() == 'pdf'
+                                ? (totalPages > 0
+                                    ? 'Progres baca: Hal. $lastPage / $totalPages ($percent%)'
+                                    : 'Ketuk untuk unduh & baca PDF di aplikasi')
+                                : 'Ketuk untuk unduh & buka file',
+                            style: TextStyle(fontSize: 11, color: totalPages > 0 ? const Color(0xFF0D7377) : Colors.grey[600]),
+                          ),
+                          if (totalPages > 0) ...[
+                            const SizedBox(height: 4),
+                            LinearProgressIndicator(
+                              value: (lastPage / totalPages).clamp(0.0, 1.0),
+                              minHeight: 3.5,
+                              color: const Color(0xFF0D7377),
+                              backgroundColor: Colors.grey[200],
+                            ),
+                          ],
+                        ],
+                      ),
+                      onTap: () {
+                        if (url.isNotEmpty) {
+                          Navigator.pop(sheetCtx);
+                          _downloadAndOpenAttachment(url, title, ext);
+                        }
+                      },
+                    );
                   },
                 );
               }),

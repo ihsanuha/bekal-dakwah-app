@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -34,16 +32,6 @@ class _HadithWebViewScreenState extends State<HadithWebViewScreen> {
         NavigationDelegate(
           onProgress: (p) {
             if (mounted) setState(() => _progress = p);
-          },
-          onPageFinished: (_) {
-            _controller.runJavaScript('''
-              (function() {
-                var vp = document.querySelector('meta[name="viewport"]');
-                if (vp) {
-                  vp.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes');
-                }
-              })();
-            ''');
           },
         ),
       )
@@ -117,14 +105,7 @@ class _HadithWebViewScreenState extends State<HadithWebViewScreen> {
                 color: const Color(0xFF0D7377),
                 minHeight: 2.5,
               ),
-            Expanded(
-              child: WebViewWidget(
-                controller: _controller,
-                gestureRecognizers: {
-                  Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
-                },
-              ),
-            ),
+            Expanded(child: WebViewWidget(controller: _controller)),
           ],
         ),
       ),

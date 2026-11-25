@@ -20,7 +20,6 @@ class _PortalHubScreenState extends State<PortalHubScreen> {
     {'name': 'Hifdh.app', 'desc': 'Hafalan & Muroja\'ah', 'url': 'https://hifdh.app/'},
     {'name': 'Bahith.app', 'desc': 'Pencari Ilmiah', 'url': 'https://bahith.app/'},
     {'name': 'Sunnah.one', 'desc': 'Al-Bahits Al-Haditsi', 'url': 'https://sunnah.one/'},
-    {'name': 'Faidah.app', 'desc': 'Fawaid Ulama', 'url': 'https://faidah.app/'},
   ];
 
   late int _selectedIndex;

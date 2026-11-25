@@ -232,7 +232,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     '• Konsultasi Syariah (konsultasisyariah.com)\n'
                     '• Doa & Dzikir Shahih (Hisnul Muslim & Dzikir Pagi Petang)\n'
                     '• Fatwa IslamWeb, IslamHouse & Bekal Islam\n'
-                    '• Portal Riset: Tafsir.app, Hifdh.app, Bahith.app, Sunnah.one, Faidah.app',
+                    '• Portal Riset: Tafsir.app, Takw.in, Hifdh.app, Bahith.app, Sunnah.one',
                     style: TextStyle(fontSize: 13, height: 1.5),
                   ),
                   actions: [
