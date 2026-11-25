@@ -97,6 +97,19 @@ class _DakwahScheduleScreenState extends State<DakwahScheduleScreen> {
 
   Future<void> _loadSchedules() async {
     final prefs = await SharedPreferences.getInstance();
+    final cleanedOnce = prefs.getBool('schedules_cleared_v1') ?? false;
+    if (!cleanedOnce) {
+      await prefs.setString('saved_dakwah_schedules', jsonEncode([]));
+      await prefs.setBool('schedules_cleared_v1', true);
+      if (mounted) {
+        setState(() {
+          _schedules = [];
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
     final raw = prefs.getString('saved_dakwah_schedules');
     if (raw != null) {
       final List decoded = jsonDecode(raw);
@@ -105,42 +118,10 @@ class _DakwahScheduleScreenState extends State<DakwahScheduleScreen> {
         _isLoading = false;
       });
     } else {
-      // Seed awal dengan tanggal Jum'at terdekat
-      final now = DateTime.now();
-      int daysToFriday = (DateTime.friday - now.weekday + 7) % 7;
-      if (daysToFriday == 0) daysToFriday = 7;
-      final nextFriday = DateTime(now.year, now.month, now.day + daysToFriday);
-
-      _schedules = [
-        {
-          'id': '1001',
-          'title': 'Khutbah Jum\'at: Adab Penuntut Ilmu',
-          'location': 'Masjid Agung Al-Falah',
-          'date': _dateKey(nextFriday),
-          'clock': '11:45',
-          'time': '${getDayAndPasaran(nextFriday)}, 11:45 WIB',
-          'status': 'Khutbah Jum\'at',
-          'notifyEnabled': false,
-          'notifyDaysBefore': 1,
-          'notifyHour': 7,
-          'notifyMinute': 0,
-        },
-        {
-          'id': '1002',
-          'title': 'Kajian Kitab At-Tauhid',
-          'location': 'Masjid Al-Ikhlas',
-          'date': _dateKey(DateTime(now.year, now.month, now.day)),
-          'clock': '18:30',
-          'time': 'Ahad, Ba\'da Maghrib',
-          'status': 'Rutin Mingguan',
-          'notifyEnabled': false,
-          'notifyDaysBefore': 1,
-          'notifyHour': 7,
-          'notifyMinute': 0,
-        },
-      ];
-      _saveSchedules();
-      setState(() => _isLoading = false);
+      setState(() {
+        _schedules = [];
+        _isLoading = false;
+      });
     }
   }
 
@@ -380,9 +361,38 @@ class _DakwahScheduleScreenState extends State<DakwahScheduleScreen> {
   }
 
   Future<void> _deleteSchedule(int index) async {
+    if (index < 0 || index >= _schedules.length) return;
     final item = _schedules[index];
-    await NotificationService.cancelReminder(_notifIdFor(item['id'].toString()));
     setState(() => _schedules.removeAt(index));
+    await _saveSchedules();
+    try {
+      await NotificationService.cancelReminder(_notifIdFor(item['id'].toString()));
+    } catch (_) {}
+  }
+
+  Future<void> _clearAllSchedules() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Bersihkan Semua Jadwal?'),
+        content: const Text('Semua jadwal kajian dan khutbah akan dihapus.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus Semua'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    for (final item in _schedules) {
+      try {
+        await NotificationService.cancelReminder(_notifIdFor(item['id'].toString()));
+      } catch (_) {}
+    }
+    setState(() => _schedules.clear());
     await _saveSchedules();
   }
 
@@ -413,6 +423,12 @@ class _DakwahScheduleScreenState extends State<DakwahScheduleScreen> {
       appBar: AppBar(
         title: Text('Jadwal & Kalender Jawa', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)),
         actions: [
+          if (_schedules.isNotEmpty)
+            IconButton(
+              icon: const Icon(LucideIcons.trash2, size: 19, color: Colors.red),
+              tooltip: 'Bersihkan Semua Jadwal',
+              onPressed: _clearAllSchedules,
+            ),
           IconButton(
             icon: const Icon(LucideIcons.calendarCheck, size: 20),
             tooltip: 'Hari Ini',

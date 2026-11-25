@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -14,6 +16,7 @@ class PortalHubScreen extends StatefulWidget {
 class _PortalHubScreenState extends State<PortalHubScreen> {
   static const List<Map<String, String>> _portals = [
     {'name': 'Tafsir.app', 'desc': 'Al-Bahits Al-Qur\'ani', 'url': 'https://tafsir.app/'},
+    {'name': 'Takw.in', 'desc': 'Takwin Ar-Rasikhin', 'url': 'https://takw.in/'},
     {'name': 'Hifdh.app', 'desc': 'Hafalan & Muroja\'ah', 'url': 'https://hifdh.app/'},
     {'name': 'Bahith.app', 'desc': 'Pencari Ilmiah', 'url': 'https://bahith.app/'},
     {'name': 'Sunnah.one', 'desc': 'Al-Bahits Al-Haditsi', 'url': 'https://sunnah.one/'},
@@ -30,6 +33,10 @@ class _PortalHubScreenState extends State<PortalHubScreen> {
     _selectedIndex = widget.initialIndex.clamp(0, _portals.length - 1);
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..enableZoom(true)
+      ..setUserAgent(
+        'Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (p) {
@@ -119,7 +126,14 @@ class _PortalHubScreenState extends State<PortalHubScreen> {
                 color: const Color(0xFF0D7377),
                 minHeight: 2.5,
               ),
-            Expanded(child: WebViewWidget(controller: _controller)),
+            Expanded(
+              child: WebViewWidget(
+                controller: _controller,
+                gestureRecognizers: {
+                  Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
+                },
+              ),
+            ),
           ],
         ),
       ),

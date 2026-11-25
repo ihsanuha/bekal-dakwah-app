@@ -42,9 +42,6 @@ class _HadithWebViewScreenState extends State<HadithWebViewScreen> {
                 if (vp) {
                   vp.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes');
                 }
-                var style = document.createElement('style');
-                style.innerHTML = 'html, body { max-width: 100vw !important; overflow-x: auto !important; overflow-y: auto !important; }';
-                document.head.appendChild(style);
               })();
             ''');
           },
