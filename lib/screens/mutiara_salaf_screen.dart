@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import 'hadith_webview_screen.dart';
 
 class MutiaraSalafScreen extends StatefulWidget {
   const MutiaraSalafScreen({super.key});
@@ -16,6 +18,7 @@ class MutiaraSalafScreen extends StatefulWidget {
 class _MutiaraSalafScreenState extends State<MutiaraSalafScreen> {
   List<Map<String, dynamic>> _items = [];
   List<Map<String, dynamic>> _filtered = [];
+  final Set<int> _expandedIndices = {};
   bool _loading = true;
   final TextEditingController _searchCtrl = TextEditingController();
 
@@ -101,6 +104,51 @@ class _MutiaraSalafScreenState extends State<MutiaraSalafScreen> {
     }
   }
 
+  Widget _buildClickableText(String text, TextStyle baseStyle) {
+    final urlRegex = RegExp(r'https?://[^\s\]\)]+');
+    final matches = urlRegex.allMatches(text).toList();
+    if (matches.isEmpty) {
+      return Text(text, style: baseStyle);
+    }
+
+    final spans = <InlineSpan>[];
+    int lastEnd = 0;
+    for (final m in matches) {
+      if (m.start > lastEnd) {
+        spans.add(TextSpan(text: text.substring(lastEnd, m.start), style: baseStyle));
+      }
+      final url = m.group(0)!;
+      spans.add(
+        TextSpan(
+          text: url,
+          style: baseStyle.copyWith(
+            color: const Color(0xFF0D7377),
+            decoration: TextDecoration.underline,
+            fontWeight: FontWeight.w600,
+          ),
+          recognizer: TapGestureRecognizer()
+            ..onTap = () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => HadithWebViewScreen(
+                    url: url,
+                    title: url.contains('shamela') ? 'Rujukan Shamela' : 'Rujukan Kitab',
+                  ),
+                ),
+              );
+            },
+        ),
+      );
+      lastEnd = m.end;
+    }
+    if (lastEnd < text.length) {
+      spans.add(TextSpan(text: text.substring(lastEnd), style: baseStyle));
+    }
+
+    return Text.rich(TextSpan(children: spans));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -171,6 +219,8 @@ class _MutiaraSalafScreenState extends State<MutiaraSalafScreen> {
                           itemCount: _filtered.length,
                           itemBuilder: (_, idx) {
                             final item = _filtered[idx];
+                            final itemKey = (item['id'] as int?) ?? idx;
+                            final isExpanded = _expandedIndices.contains(itemKey);
                             final judul = (item['judul'] ?? '').toString();
                             final arab = (item['teks_arab'] ?? '').toString();
                             final kontenWa = (item['konten_wa'] ?? '').toString();
@@ -203,46 +253,81 @@ class _MutiaraSalafScreenState extends State<MutiaraSalafScreen> {
                                       ],
                                     ),
                                     if (arab.isNotEmpty && arab != '-') ...[
-                                      const SizedBox(height: 10),
-                                      SelectableText(
+                                      const SizedBox(height: 8),
+                                      Text(
                                         arab,
+                                        maxLines: isExpanded ? null : 2,
+                                        overflow: isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
                                         textAlign: TextAlign.right,
                                         textDirection: TextDirection.rtl,
                                         style: const TextStyle(
                                           fontFamily: 'ThmanyahText',
-                                          fontSize: 19,
-                                          height: 1.85,
+                                          fontSize: 18,
+                                          height: 1.8,
                                           color: Colors.black87,
                                         ),
                                       ),
                                     ],
                                     const SizedBox(height: 8),
-                                    SelectableText(
-                                      kontenWa,
-                                      style: const TextStyle(fontSize: 13.5, height: 1.55, color: Colors.black87),
-                                    ),
-                                    if (sumber.isNotEmpty) ...[
-                                      const SizedBox(height: 8),
-                                      Text('Sumber: $sumber', style: TextStyle(fontSize: 11.5, color: Colors.grey[700], fontStyle: FontStyle.italic)),
-                                    ],
-                                    const SizedBox(height: 10),
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: ElevatedButton.icon(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF0D7377),
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                        ),
-                                        icon: const Icon(LucideIcons.copy, size: 15),
-                                        label: const Text('Salin Siap WA', style: TextStyle(fontSize: 12)),
-                                        onPressed: () {
-                                          Clipboard.setData(ClipboardData(text: kontenWa));
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Konten Mutiara Ilmu disalin, siap tempel di WA')),
-                                          );
-                                        },
+                                    if (isExpanded)
+                                      _buildClickableText(
+                                        kontenWa,
+                                        const TextStyle(fontSize: 13.5, height: 1.55, color: Colors.black87),
+                                      )
+                                    else
+                                      Text(
+                                        kontenWa,
+                                        maxLines: 4,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 13.5, height: 1.5, color: Colors.black87),
                                       ),
+                                    if (sumber.isNotEmpty && isExpanded) ...[
+                                      const SizedBox(height: 8),
+                                      _buildClickableText(
+                                        'Sumber: $sumber',
+                                        TextStyle(fontSize: 11.5, color: Colors.grey[700], fontStyle: FontStyle.italic),
+                                      ),
+                                    ],
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        TextButton.icon(
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: const Color(0xFF0D7377),
+                                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                                          ),
+                                          onPressed: () {
+                                            setState(() {
+                                              if (isExpanded) {
+                                                _expandedIndices.remove(itemKey);
+                                              } else {
+                                                _expandedIndices.add(itemKey);
+                                              }
+                                            });
+                                          },
+                                          icon: Icon(isExpanded ? LucideIcons.chevronUp : LucideIcons.chevronDown, size: 15),
+                                          label: Text(
+                                            isExpanded ? 'Tutup' : 'Baca selengkapnya',
+                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                          ),
+                                        ),
+                                        ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF0D7377),
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                          ),
+                                          icon: const Icon(LucideIcons.copy, size: 15),
+                                          label: const Text('Salin Siap WA', style: TextStyle(fontSize: 12)),
+                                          onPressed: () {
+                                            Clipboard.setData(ClipboardData(text: kontenWa));
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Konten Mutiara Ilmu disalin, siap tempel di WA')),
+                                            );
+                                          },
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),

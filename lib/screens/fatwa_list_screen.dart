@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -24,9 +26,12 @@ class _FatwaListScreenState extends State<FatwaListScreen> with SingleTickerProv
 
   // Fatwa Indonesia (IslamHouse API v3)
   List<dynamic> _ihFatwas = [];
+  List<dynamic>? _allIhFatwasCache;
   List<dynamic> _filteredIhFatwas = [];
   bool _loadingIh = true;
+  bool _isGlobalSearch = false;
   int _ihPage = 1;
+  int _totalPages = 1;
   final TextEditingController _searchCtrl = TextEditingController();
 
   @override
@@ -35,6 +40,7 @@ class _FatwaListScreenState extends State<FatwaListScreen> with SingleTickerProv
     _tabController = TabController(length: 3, vsync: this);
     _islamwebController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..enableZoom(true)
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (p) {
@@ -45,6 +51,7 @@ class _FatwaListScreenState extends State<FatwaListScreen> with SingleTickerProv
       ..loadRequest(Uri.parse('https://www.islamweb.net/ar/fatwa/'));
     _bekalIslamController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..enableZoom(true)
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (p) {
@@ -64,18 +71,24 @@ class _FatwaListScreenState extends State<FatwaListScreen> with SingleTickerProv
   }
 
   Future<void> _loadIslamHouseFatwas({required int page}) async {
-    setState(() => _loadingIh = true);
+    setState(() {
+      _loadingIh = true;
+      _isGlobalSearch = false;
+    });
     try {
-      final url = 'https://api3.islamhouse.com/v3/paV29H2Gm56kvLPy/main/fatwa/id/id/$page/20/json';
+      final url = 'https://api3.islamhouse.com/v3/paV29H2Gm56kvLPy/main/fatwa/id/id/$page/50/json';
       final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 20));
       if (res.statusCode == 200) {
         final decoded = jsonDecode(res.body) as Map<String, dynamic>;
         final data = (decoded['data'] as List?) ?? [];
+        final links = (decoded['links'] as Map<String, dynamic>?) ?? {};
+        final pagesNum = (links['pages_number'] as int?) ?? 8;
         if (mounted) {
           setState(() {
             _ihPage = page;
+            _totalPages = pagesNum;
             _ihFatwas = data;
-            _applyFilter(_searchCtrl.text);
+            _applyFilter(_searchCtrl.text, source: data);
             _loadingIh = false;
           });
         }
@@ -85,12 +98,51 @@ class _FatwaListScreenState extends State<FatwaListScreen> with SingleTickerProv
     if (mounted) setState(() => _loadingIh = false);
   }
 
-  void _applyFilter(String q) {
+  Future<void> _searchAllIslamHouseFatwas(String q) async {
+    final query = q.trim();
+    if (query.isEmpty) {
+      _loadIslamHouseFatwas(page: 1);
+      return;
+    }
+
+    setState(() {
+      _loadingIh = true;
+      _isGlobalSearch = true;
+    });
+
+    if (_allIhFatwasCache == null) {
+      final pagesToFetch = _totalPages.clamp(1, 10);
+      final futures = List.generate(pagesToFetch, (i) async {
+        final p = i + 1;
+        try {
+          final res = await http
+              .get(Uri.parse('https://api3.islamhouse.com/v3/paV29H2Gm56kvLPy/main/fatwa/id/id/$p/50/json'))
+              .timeout(const Duration(seconds: 20));
+          if (res.statusCode == 200) {
+            final d = jsonDecode(res.body) as Map<String, dynamic>;
+            return (d['data'] as List?) ?? [];
+          }
+        } catch (_) {}
+        return <dynamic>[];
+      });
+      final results = await Future.wait(futures);
+      _allIhFatwasCache = results.expand((e) => e).toList();
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _applyFilter(query, source: _allIhFatwasCache!);
+      _loadingIh = false;
+    });
+  }
+
+  void _applyFilter(String q, {List<dynamic>? source}) {
+    final list = source ?? (_isGlobalSearch && _allIhFatwasCache != null ? _allIhFatwasCache! : _ihFatwas);
     final query = q.trim().toLowerCase();
     if (query.isEmpty) {
-      _filteredIhFatwas = _ihFatwas;
+      _filteredIhFatwas = list;
     } else {
-      _filteredIhFatwas = _ihFatwas.where((item) {
+      _filteredIhFatwas = list.where((item) {
         final title = (item['title'] ?? '').toString().toLowerCase();
         final desc = (item['description'] ?? '').toString().toLowerCase();
         return title.contains(query) || desc.contains(query);
@@ -146,6 +198,10 @@ class _FatwaListScreenState extends State<FatwaListScreen> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
+    final eagerWebGestures = {
+      Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
+    };
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Fatwa Ulama', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -182,6 +238,7 @@ class _FatwaListScreenState extends State<FatwaListScreen> with SingleTickerProv
       ),
       body: TabBarView(
         controller: _tabController,
+        physics: const NeverScrollableScrollPhysics(),
         children: [
           // Tab 1: IslamWeb Live Portal
           Column(
@@ -227,27 +284,52 @@ class _FatwaListScreenState extends State<FatwaListScreen> with SingleTickerProv
                   ],
                 ),
               ),
-              Expanded(child: WebViewWidget(controller: _islamwebController)),
+              Expanded(
+                child: WebViewWidget(
+                  controller: _islamwebController,
+                  gestureRecognizers: eagerWebGestures,
+                ),
+              ),
             ],
           ),
 
-          // Tab 2: Fatwa Indonesia (IslamHouse API v3)
+          // Tab 2: Fatwa Indonesia (IslamHouse API v3 - Cari di Seluruh Database)
           Column(
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
                 child: TextField(
                   controller: _searchCtrl,
+                  textInputAction: TextInputAction.search,
                   decoration: InputDecoration(
-                    hintText: 'Filter fatwa pada halaman ini...',
+                    hintText: 'Cari fatwa di seluruh database IslamHouse...',
                     hintStyle: const TextStyle(fontSize: 13),
-                    prefixIcon: const Icon(LucideIcons.search, size: 19),
+                    prefixIcon: IconButton(
+                      icon: const Icon(LucideIcons.search, size: 19, color: Color(0xFF0D7377)),
+                      onPressed: () => _searchAllIslamHouseFatwas(_searchCtrl.text),
+                    ),
+                    suffixIcon: _searchCtrl.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(LucideIcons.x, size: 17),
+                            onPressed: () {
+                              _searchCtrl.clear();
+                              _loadIslamHouseFatwas(page: 1);
+                            },
+                          )
+                        : null,
                     filled: true,
                     fillColor: Colors.grey[100],
                     contentPadding: const EdgeInsets.symmetric(vertical: 8),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                   ),
-                  onChanged: (v) => setState(() => _applyFilter(v)),
+                  onChanged: (v) {
+                    if (v.trim().isEmpty && _isGlobalSearch) {
+                      _loadIslamHouseFatwas(page: 1);
+                    } else {
+                      setState(() => _applyFilter(v));
+                    }
+                  },
+                  onSubmitted: _searchAllIslamHouseFatwas,
                 ),
               ),
               Padding(
@@ -255,20 +337,27 @@ class _FatwaListScreenState extends State<FatwaListScreen> with SingleTickerProv
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Halaman $_ihPage (IslamHouse)', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
-                    Row(
-                      children: [
-                        if (_ihPage > 1)
-                          TextButton(
-                            onPressed: () => _loadIslamHouseFatwas(page: _ihPage - 1),
-                            child: const Text('Sebelumnya', style: TextStyle(fontSize: 12)),
-                          ),
-                        TextButton(
-                          onPressed: () => _loadIslamHouseFatwas(page: _ihPage + 1),
-                          child: const Text('Berikutnya', style: TextStyle(fontSize: 12)),
-                        ),
-                      ],
+                    Text(
+                      _isGlobalSearch
+                          ? '${_filteredIhFatwas.length} hasil ditemukan dari seluruh database'
+                          : 'Halaman $_ihPage / $_totalPages (IslamHouse)',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                     ),
+                    if (!_isGlobalSearch)
+                      Row(
+                        children: [
+                          if (_ihPage > 1)
+                            TextButton(
+                              onPressed: () => _loadIslamHouseFatwas(page: _ihPage - 1),
+                              child: const Text('Sebelumnya', style: TextStyle(fontSize: 12)),
+                            ),
+                          if (_ihPage < _totalPages)
+                            TextButton(
+                              onPressed: () => _loadIslamHouseFatwas(page: _ihPage + 1),
+                              child: const Text('Berikutnya', style: TextStyle(fontSize: 12)),
+                            ),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -308,7 +397,12 @@ class _FatwaListScreenState extends State<FatwaListScreen> with SingleTickerProv
                   color: const Color(0xFF0D7377),
                   minHeight: 2.5,
                 ),
-              Expanded(child: WebViewWidget(controller: _bekalIslamController)),
+              Expanded(
+                child: WebViewWidget(
+                  controller: _bekalIslamController,
+                  gestureRecognizers: eagerWebGestures,
+                ),
+              ),
             ],
           ),
         ],
