@@ -34,15 +34,6 @@ class _QuranListScreenState extends State<QuranListScreen> with SingleTickerProv
   Timer? _debounce;
   final TextEditingController _searchCtrl = TextEditingController();
 
-  final List<String> _quickQueries = [
-    'توبة',
-    'الرحمن',
-    'لا تقنطوا',
-    'الربا',
-    '2:255',
-    'ikhlas',
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -300,37 +291,6 @@ class _QuranListScreenState extends State<QuranListScreen> with SingleTickerProv
               onChanged: _onSearchChanged,
             ),
           ),
-
-          // Quick Search Chips
-          SizedBox(
-            height: 36,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              scrollDirection: Axis.horizontal,
-              itemCount: _quickQueries.length,
-              separatorBuilder: (ctx, idx) => const SizedBox(width: 8),
-              itemBuilder: (ctx, i) {
-                final q = _quickQueries[i];
-                return ActionChip(
-                  label: Text(
-                    q,
-                    style: q.contains(RegExp(r'[\u0600-\u06FF]'))
-                        ? GoogleFonts.amiri(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF0D7377))
-                        : const TextStyle(fontSize: 12, color: Color(0xFF0D7377)),
-                  ),
-                  backgroundColor: const Color(0xFF0D7377).withValues(alpha: 0.08),
-                  side: BorderSide.none,
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  onPressed: () {
-                    _searchCtrl.text = q;
-                    _searchCtrl.selection = TextSelection.fromPosition(TextPosition(offset: q.length));
-                    _onSearchChanged(q);
-                  },
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 6),
 
           // Resume Banner when not searching
           if (!isQueryMode && !_isLoadingData)
