@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -14,6 +16,8 @@ import 'screens/dakwah_schedule_screen.dart';
 import 'screens/doa_dzikir_screen.dart';
 import 'screens/islamhouse_screen.dart';
 import 'screens/portal_hub_screen.dart';
+import 'screens/mutiara_salaf_screen.dart';
+import 'screens/pustaka_ilmu_screen.dart';
 import 'services/api_service.dart';
 import 'services/notification_service.dart';
 
@@ -107,11 +111,35 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _prayerData;
   bool _loadingPrayer = true;
   String _locationLabel = 'Jakarta (Default)';
+  Map<String, dynamic>? _latestMutiara;
 
   @override
   void initState() {
     super.initState();
     _loadPrayerTimes();
+    _loadLatestMutiara();
+  }
+
+  Future<void> _loadLatestMutiara() async {
+    final prefs = await SharedPreferences.getInstance();
+    final customUrl = prefs.getString('custom_mutiara_sheet_url');
+    final cachedRaw = prefs.getString('cached_mutiara_items');
+    if (cachedRaw != null) {
+      try {
+        final List decoded = jsonDecode(cachedRaw);
+        if (decoded.isNotEmpty && mounted) {
+          setState(() => _latestMutiara = Map<String, dynamic>.from(decoded.first));
+        }
+      } catch (_) {}
+    }
+
+    final fresh = await ApiService.getMutiaraList(sheetUrl: customUrl);
+    if (fresh.isNotEmpty) {
+      await prefs.setString('cached_mutiara_items', jsonEncode(fresh));
+      if (mounted) {
+        setState(() => _latestMutiara = fresh.first);
+      }
+    }
   }
 
   Future<void> _loadPrayerTimes({bool forceGpsRefresh = false}) async {
@@ -289,7 +317,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             const SizedBox(height: 20),
 
-            // Banner AI Assistant
+            // Kartu Mutiara Ilmu (Sinkron otomatis dengan Google Sheet)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -301,33 +329,93 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Icon(LucideIcons.sparkles, color: Color(0xFFD4A843), size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Asisten AI Dakwah (Manhaj Salaf)',
-                        style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+                      Row(
+                        children: [
+                          const Icon(LucideIcons.sparkles, color: Color(0xFFD4A843), size: 19),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Mutiara Ilmu',
+                            style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.amber[200],
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(0, 28),
+                        ),
+                        onPressed: () async {
+                          await Navigator.push(context, MaterialPageRoute(builder: (_) => const MutiaraSalafScreen()));
+                          _loadLatestMutiara();
+                        },
+                        child: const Text('Lihat Semua →', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Siapkan materi kajian, carikan dalil shahih, dan susun jawaban pertanyaan jamaah dengan cepat dan amanah ilmiah.',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFD4A843),
-                      foregroundColor: Colors.black87,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  const SizedBox(height: 6),
+                  if (_latestMutiara != null) ...[
+                    Text(
+                      (_latestMutiara!['judul'] ?? 'Mutiara Ilmu Terbaru').toString(),
+                      style: GoogleFonts.poppins(color: Colors.amber[200], fontWeight: FontWeight.bold, fontSize: 13.5),
                     ),
-                    onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const AIChatScreen()));
-                    },
-                    icon: const Icon(LucideIcons.messageSquare, size: 16),
-                    label: const Text('Mulai Tanya AI', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
+                    if ((_latestMutiara!['teks_arab'] ?? '').toString().isNotEmpty && _latestMutiara!['teks_arab'] != '-') ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        _latestMutiara!['teks_arab'].toString(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
+                        textDirection: TextDirection.rtl,
+                        style: const TextStyle(fontFamily: 'ThmanyahText', color: Colors.white, fontSize: 16, height: 1.7),
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    Text(
+                      (_latestMutiara!['konten_wa'] ?? '').toString(),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontSize: 12, height: 1.45),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            (_latestMutiara!['sumber'] ?? '').toString(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.white70, fontSize: 11, fontStyle: FontStyle.italic),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFD4A843),
+                            foregroundColor: Colors.black87,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: (_latestMutiara!['konten_wa'] ?? '').toString()));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Mutiara Ilmu disalin, siap tempel di WA')),
+                            );
+                          },
+                          icon: const Icon(LucideIcons.copy, size: 14),
+                          label: const Text('Salin WA', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    const Text(
+                      'Belum tersambung ke Google Sheet Mutiara Ilmu. Ketuk "Lihat Semua" untuk mengatur link Sheet atau refresh.',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -386,6 +474,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 }),
                 _buildMenuCard(LucideIcons.compass, 'Portal Riset\nIlmiah', Colors.blueGrey[700]!, () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const PortalHubScreen()));
+                }),
+                _buildMenuCard(LucideIcons.bookOpenCheck, 'Pustaka\nIlmu (PDF)', Colors.teal[800]!, () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const PustakaIlmuScreen()));
                 }),
               ],
             ),

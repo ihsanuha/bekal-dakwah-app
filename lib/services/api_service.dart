@@ -161,4 +161,21 @@ class ApiService {
     }
     throw Exception('HTTP ${res.statusCode} saat mengambil halaman kitab');
   }
+
+  /// Ambil daftar Mutiara Ilmu dari Google Sheet via backend
+  static Future<List<Map<String, dynamic>>> getMutiaraList({String? sheetUrl}) async {
+    try {
+      String url = AppConfig.mutiaraList;
+      if (sheetUrl != null && sheetUrl.trim().isNotEmpty) {
+        url += '?sheet_url=${Uri.encodeQueryComponent(sheetUrl.trim())}';
+      }
+      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 20));
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+        final data = (decoded['data'] as List?) ?? [];
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
 }

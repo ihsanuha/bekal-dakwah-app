@@ -14,4 +14,5 @@ class AppConfig {
   static const String turathSearch = '$baseUrl/turath/search';
   static String turathBook(int bookId) => '$baseUrl/turath/book/$bookId';
   static String turathPage(int bookId, int pg) => '$baseUrl/turath/page?book_id=$bookId&pg=$pg';
+  static const String mutiaraList = '$baseUrl/mutiara/list';
 }
