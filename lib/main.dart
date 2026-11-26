@@ -136,8 +136,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final fresh = await ApiService.getMutiaraList(sheetUrl: customUrl);
     if (fresh.isNotEmpty) {
       await prefs.setString('cached_mutiara_items', jsonEncode(fresh));
+      final latest = fresh.first;
+      final latestKey = '${latest['tanggal']}_${latest['judul']}';
+      final lastNotifiedKey = prefs.getString('last_notified_mutiara_key');
+      if (lastNotifiedKey != null && lastNotifiedKey != latestKey) {
+        await NotificationService.showMutiaraNotification(
+          title: 'Mutiara Ilmu Baru: ${latest['judul'] ?? 'Update'}',
+          body: (latest['konten_wa'] ?? '').toString(),
+        );
+      }
+      await prefs.setString('last_notified_mutiara_key', latestKey);
       if (mounted) {
-        setState(() => _latestMutiara = fresh.first);
+        setState(() => _latestMutiara = latest);
       }
     }
   }

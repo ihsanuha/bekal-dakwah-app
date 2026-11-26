@@ -56,4 +56,24 @@ class NotificationService {
     await init();
     await _plugin.cancel(id);
   }
+
+  static Future<void> showMutiaraNotification({
+    required String title,
+    required String body,
+  }) async {
+    await init();
+    const androidDetails = AndroidNotificationDetails(
+      'bekal_dakwah_mutiara',
+      'Mutiara Ilmu Terbaru',
+      channelDescription: 'Notifikasi saat ada konten Mutiara Ilmu baru dari Google Sheet',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    await _plugin.show(
+      88001,
+      title,
+      body,
+      const NotificationDetails(android: androidDetails),
+    );
+  }
 }

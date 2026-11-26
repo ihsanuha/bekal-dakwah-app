@@ -62,6 +62,11 @@ class _DakwahScheduleScreenState extends State<DakwahScheduleScreen> {
         return d.weekday == a.weekday && _pasaranIndex(d) == _pasaranIndex(a);
       case 'monthly':
         return d.day == a.day;
+      case 'monthly_nth_weekday':
+        if (d.weekday != a.weekday) return false;
+        final weekOfMonth = ((d.day - 1) ~/ 7) + 1;
+        final weeks = ((item['repeatWeeks'] as List?) ?? []).map((e) => int.tryParse('$e') ?? 0).toList();
+        return weeks.contains(weekOfMonth);
       default:
         return d.year == a.year && d.month == a.month && d.day == a.day;
     }
@@ -82,7 +87,7 @@ class _DakwahScheduleScreenState extends State<DakwahScheduleScreen> {
     return anchor;
   }
 
-  String _repeatLabel(String? repeatType, DateTime? anchor) {
+  String _repeatLabel(String? repeatType, DateTime? anchor, {List<dynamic>? repeatWeeks}) {
     switch (repeatType) {
       case 'weekly':
         return anchor != null ? 'Berulang tiap ${_dayNames[anchor.weekday - 1]}' : 'Rutin Mingguan';
@@ -90,6 +95,10 @@ class _DakwahScheduleScreenState extends State<DakwahScheduleScreen> {
         return anchor != null ? 'Berulang tiap ${getDayAndPasaran(anchor)} (35 hr)' : 'Selapanan (35 hari)';
       case 'monthly':
         return anchor != null ? 'Berulang tiap tanggal ${anchor.day}' : 'Rutin Bulanan';
+      case 'monthly_nth_weekday':
+        final weeksStr = (repeatWeeks ?? []).join(', ');
+        final dayStr = anchor != null ? _dayNames[anchor.weekday - 1] : 'Hari';
+        return 'Tiap $dayStr pekan ke-$weeksStr';
       default:
         return 'Sekali saja';
     }
@@ -178,6 +187,9 @@ class _DakwahScheduleScreenState extends State<DakwahScheduleScreen> {
     bool notifyEnabled = existingSchedule?['notifyEnabled'] == true;
     int notifyDaysBefore = (existingSchedule?['notifyDaysBefore'] as int?) ?? 1;
     String repeatType = (existingSchedule?['repeatType'] ?? 'none').toString();
+    final Set<int> repeatWeeks = ((existingSchedule?['repeatWeeks'] as List?) ?? [((pickedDate.day - 1) ~/ 7) + 1])
+        .map((e) => int.tryParse('$e') ?? 1)
+        .toSet();
     final customDaysCtrl = TextEditingController(text: '$notifyDaysBefore');
     TimeOfDay notifyTime = TimeOfDay(
       hour: (existingSchedule?['notifyHour'] as int?) ?? 7,
@@ -245,11 +257,36 @@ class _DakwahScheduleScreenState extends State<DakwahScheduleScreen> {
                   items: [
                     const DropdownMenuItem(value: 'none', child: Text('Sekali saja')),
                     DropdownMenuItem(value: 'weekly', child: Text('Setiap ${_dayNames[pickedDate.weekday - 1]} (Mingguan)')),
+                    DropdownMenuItem(value: 'monthly_nth_weekday', child: Text('${_dayNames[pickedDate.weekday - 1]} Pekan Tertentu (1-5)')),
                     DropdownMenuItem(value: 'pasaran_35', child: Text('Setiap ${getDayAndPasaran(pickedDate)} (Selapanan 35 hr)')),
                     DropdownMenuItem(value: 'monthly', child: Text('Setiap Tanggal ${pickedDate.day} (Bulanan)')),
                   ],
                   onChanged: (v) => setDialogState(() => repeatType = v ?? 'none'),
                 ),
+                if (repeatType == 'monthly_nth_weekday') ...[
+                  const SizedBox(height: 8),
+                  const Text('Pilih Pekan ke-berapa dalam bulan:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    children: [1, 2, 3, 4, 5].map((w) {
+                      final sel = repeatWeeks.contains(w);
+                      return FilterChip(
+                        label: Text('Pekan $w', style: const TextStyle(fontSize: 11)),
+                        selected: sel,
+                        onSelected: (checked) {
+                          setDialogState(() {
+                            if (checked) {
+                              repeatWeeks.add(w);
+                            } else if (repeatWeeks.length > 1) {
+                              repeatWeeks.remove(w);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
                 const Divider(height: 20),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
@@ -328,6 +365,7 @@ class _DakwahScheduleScreenState extends State<DakwahScheduleScreen> {
                   'time': '${getDayAndPasaran(pickedDate)}, $clockStr WIB',
                   'status': statusCtrl.text.trim(),
                   'repeatType': repeatType,
+                  'repeatWeeks': (repeatWeeks.toList()..sort()),
                   'notifyEnabled': notifyEnabled,
                   'notifyDaysBefore': daysBeforeVal < 0 ? 0 : daysBeforeVal,
                   'notifyHour': notifyTime.hour,
@@ -686,7 +724,7 @@ class _DakwahScheduleScreenState extends State<DakwahScheduleScreen> {
                   const Icon(LucideIcons.repeat, size: 12, color: Colors.purple),
                   const SizedBox(width: 5),
                   Text(
-                    _repeatLabel(item['repeatType']?.toString(), parsed),
+                    _repeatLabel(item['repeatType']?.toString(), parsed, repeatWeeks: item['repeatWeeks'] as List?),
                     style: const TextStyle(fontSize: 11, color: Colors.purple, fontWeight: FontWeight.w600),
                   ),
                 ],

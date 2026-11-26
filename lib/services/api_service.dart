@@ -162,14 +162,20 @@ class ApiService {
     throw Exception('HTTP ${res.statusCode} saat mengambil halaman kitab');
   }
 
-  /// Ambil daftar Mutiara Ilmu dari Google Sheet via backend
+  /// Ambil daftar Mutiara Ilmu dari Google Sheet (langsung CSV jika sheetUrl diisi agar super cepat, atau via backend)
   static Future<List<Map<String, dynamic>>> getMutiaraList({String? sheetUrl}) async {
+    final trimmed = sheetUrl?.trim() ?? '';
+    if (trimmed.isNotEmpty) {
+      final directItems = await _fetchMutiaraCsvDirect(trimmed);
+      if (directItems.isNotEmpty) return directItems;
+    }
+
     try {
       String url = AppConfig.mutiaraList;
-      if (sheetUrl != null && sheetUrl.trim().isNotEmpty) {
-        url += '?sheet_url=${Uri.encodeQueryComponent(sheetUrl.trim())}';
+      if (trimmed.isNotEmpty) {
+        url += '?sheet_url=${Uri.encodeQueryComponent(trimmed)}';
       }
-      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 20));
+      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 25));
       if (res.statusCode == 200) {
         final decoded = jsonDecode(res.body) as Map<String, dynamic>;
         final data = (decoded['data'] as List?) ?? [];
@@ -177,5 +183,97 @@ class ApiService {
       }
     } catch (_) {}
     return [];
+  }
+
+  static Future<List<Map<String, dynamic>>> _fetchMutiaraCsvDirect(String rawUrl) async {
+    try {
+      String csvUrl = rawUrl;
+      if (!rawUrl.contains('output=csv') && !rawUrl.contains('format=csv')) {
+        final m = RegExp(r'/spreadsheets/d/([a-zA-Z0-9-_]+)').firstMatch(rawUrl);
+        if (m != null) {
+          final gidMatch = RegExp(r'gid=(\d+)').firstMatch(rawUrl);
+          final gidPart = gidMatch != null ? '&gid=${gidMatch.group(1)}' : '';
+          csvUrl = 'https://docs.google.com/spreadsheets/d/${m.group(1)}/export?format=csv$gidPart';
+        }
+      }
+      final res = await http.get(Uri.parse(csvUrl)).timeout(const Duration(seconds: 15));
+      if (res.statusCode != 200) return [];
+      final text = utf8.decode(res.bodyBytes, allowMalformed: true);
+      final rows = _parseCsv(text);
+      if (rows.length < 2) return [];
+
+      final headers = rows.first.map((h) => h.trim().toLowerCase()).toList();
+      final items = <Map<String, dynamic>>[];
+      for (int i = 1; i < rows.length; i++) {
+        final row = rows[i];
+        final map = <String, String>{};
+        for (int c = 0; c < headers.length && c < row.length; c++) {
+          map[headers[c]] = row[c].trim();
+        }
+        final status = (map['status'] ?? 'Tayang').toLowerCase();
+        final judul = map['judul'] ?? '';
+        final kontenWa = map['konten siap wa'] ?? map['mutiara / intisari'] ?? map['intisari'] ?? '';
+        if (judul.isEmpty && kontenWa.isEmpty) continue;
+        if (status.isNotEmpty && !['tayang', 'publish', 'published', 'aktif', 'ya'].contains(status)) continue;
+
+        items.add({
+          'id': i,
+          'tanggal': map['tanggal'] ?? '',
+          'judul': judul,
+          'teks_arab': map['teks arab'] ?? '',
+          'konten_wa': kontenWa,
+          'sumber': map['sumber (turath/shamela)'] ?? map['sumber'] ?? '',
+          'path_file': map['path file word'] ?? map['file pdf'] ?? '',
+          'status': map['status'] ?? 'Tayang',
+        });
+      }
+      return items.reversed.toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static List<List<String>> _parseCsv(String input) {
+    final rows = <List<String>>[];
+    var currentRow = <String>[];
+    var currentField = StringBuffer();
+    bool inQuotes = false;
+
+    for (int i = 0; i < input.length; i++) {
+      final ch = input[i];
+      if (inQuotes) {
+        if (ch == '"') {
+          if (i + 1 < input.length && input[i + 1] == '"') {
+            currentField.write('"');
+            i++;
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          currentField.write(ch);
+        }
+      } else {
+        if (ch == '"') {
+          inQuotes = true;
+        } else if (ch == ',') {
+          currentRow.add(currentField.toString());
+          currentField = StringBuffer();
+        } else if (ch == '\r') {
+          continue;
+        } else if (ch == '\n') {
+          currentRow.add(currentField.toString());
+          rows.add(currentRow);
+          currentRow = <String>[];
+          currentField = StringBuffer();
+        } else {
+          currentField.write(ch);
+        }
+      }
+    }
+    if (currentField.isNotEmpty || currentRow.isNotEmpty) {
+      currentRow.add(currentField.toString());
+      rows.add(currentRow);
+    }
+    return rows;
   }
 }

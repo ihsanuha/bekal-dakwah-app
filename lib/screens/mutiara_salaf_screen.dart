@@ -35,7 +35,6 @@ class _MutiaraSalafScreenState extends State<MutiaraSalafScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _loading = true);
     final prefs = await SharedPreferences.getInstance();
     final customUrl = prefs.getString('custom_mutiara_sheet_url');
     final cachedRaw = prefs.getString('cached_mutiara_items');
@@ -44,7 +43,12 @@ class _MutiaraSalafScreenState extends State<MutiaraSalafScreen> {
         final List decoded = jsonDecode(cachedRaw);
         _items = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
         _applyFilter(_searchCtrl.text);
+        if (mounted) setState(() => _loading = false);
       } catch (_) {}
+    }
+
+    if (_items.isEmpty && mounted) {
+      setState(() => _loading = true);
     }
 
     final fresh = await ApiService.getMutiaraList(sheetUrl: customUrl);
