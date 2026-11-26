@@ -107,7 +107,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Map<String, dynamic>? _prayerData;
   bool _loadingPrayer = true;
   String _locationLabel = 'Jakarta (Default)';
@@ -116,8 +116,22 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadPrayerTimes();
     _loadLatestMutiara();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadLatestMutiara();
+    }
   }
 
   Future<void> _loadLatestMutiara() async {
@@ -242,7 +256,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     '• Konsultasi Syariah (konsultasisyariah.com)\n'
                     '• Doa & Dzikir Shahih (Hisnul Muslim & Dzikir Pagi Petang)\n'
                     '• Fatwa IslamWeb, IslamHouse & Bekal Islam\n'
-                    '• Portal Riset: Tafsir.app, Takw.in, Hifdh.app, Bahith.app, Sunnah.one',
+                    '• Portal Riset: Tafsir.app, Tafsir.one, Takw.in, Hifdh.app, Bahith.app, Sunnah.one',
                     style: TextStyle(fontSize: 13, height: 1.5),
                   ),
                   actions: [
@@ -254,8 +268,16 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await Future.wait([
+            _loadPrayerTimes(),
+            _loadLatestMutiara(),
+          ]);
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -351,17 +373,28 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
-                      TextButton(
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.amber[200],
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(0, 28),
-                        ),
-                        onPressed: () async {
-                          await Navigator.push(context, MaterialPageRoute(builder: (_) => const MutiaraSalafScreen()));
-                          _loadLatestMutiara();
-                        },
-                        child: const Text('Lihat Semua →', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      Row(
+                        children: [
+                          IconButton(
+                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.only(right: 8),
+                            icon: const Icon(LucideIcons.refreshCw, color: Colors.white70, size: 15),
+                            tooltip: 'Perbarui Mutiara Ilmu',
+                            onPressed: _loadLatestMutiara,
+                          ),
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.amber[200],
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(0, 28),
+                            ),
+                            onPressed: () async {
+                              await Navigator.push(context, MaterialPageRoute(builder: (_) => const MutiaraSalafScreen()));
+                              _loadLatestMutiara();
+                            },
+                            child: const Text('Lihat Semua →', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -492,6 +525,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -16,6 +16,7 @@ class PortalHubScreen extends StatefulWidget {
 class _PortalHubScreenState extends State<PortalHubScreen> {
   static const List<Map<String, String>> _portals = [
     {'name': 'Tafsir.app', 'desc': 'Al-Bahits Al-Qur\'ani', 'url': 'https://tafsir.app/'},
+    {'name': 'Tafsir.one', 'desc': 'Read Tafsir.one', 'url': 'https://read.tafsir.one/'},
     {'name': 'Takw.in', 'desc': 'Takwin Ar-Rasikhin', 'url': 'https://takw.in/'},
     {'name': 'Hifdh.app', 'desc': 'Hafalan & Muroja\'ah', 'url': 'https://hifdh.app/'},
     {'name': 'Bahith.app', 'desc': 'Pencari Ilmiah', 'url': 'https://bahith.app/'},
@@ -79,17 +80,29 @@ class _PortalHubScreenState extends State<PortalHubScreen> {
           actions: [
             IconButton(
               icon: const Icon(LucideIcons.arrowLeft, size: 18),
+              tooltip: 'Halaman Web Sebelumnya',
               onPressed: () async {
                 if (await _controller.canGoBack()) await _controller.goBack();
               },
             ),
             IconButton(
               icon: const Icon(LucideIcons.refreshCw, size: 18),
+              tooltip: 'Muat Ulang',
               onPressed: () => _controller.reload(),
             ),
             IconButton(
               icon: const Icon(LucideIcons.home, size: 18),
+              tooltip: 'Beranda Portal Web',
               onPressed: () => _controller.loadRequest(Uri.parse(current['url']!)),
+            ),
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF0D7377),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+              onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+              icon: const Icon(LucideIcons.x, size: 17),
+              label: const Text('Keluar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             ),
           ],
         ),

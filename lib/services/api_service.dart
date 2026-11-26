@@ -196,7 +196,12 @@ class ApiService {
           csvUrl = 'https://docs.google.com/spreadsheets/d/${m.group(1)}/export?format=csv$gidPart';
         }
       }
-      final res = await http.get(Uri.parse(csvUrl)).timeout(const Duration(seconds: 15));
+      final sep = csvUrl.contains('?') ? '&' : '?';
+      final bustedUrl = '$csvUrl${sep}_ts=${DateTime.now().millisecondsSinceEpoch}';
+      final res = await http.get(
+        Uri.parse(bustedUrl),
+        headers: {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'},
+      ).timeout(const Duration(seconds: 15));
       if (res.statusCode != 200) return [];
       final text = utf8.decode(res.bodyBytes, allowMalformed: true);
       final rows = _parseCsv(text);
