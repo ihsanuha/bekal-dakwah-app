@@ -238,6 +238,22 @@ class ApiService {
     }
   }
 
+  /// Cari pada 7 Ensiklopedia Ad-Durar As-Saniyyah via backend
+  static Future<Map<String, dynamic>> searchDorar({
+    required String query,
+    String category = 'hadith',
+    int page = 1,
+  }) async {
+    final uri = Uri.parse(
+      '${AppConfig.dorarSearch}?q=${Uri.encodeQueryComponent(query.trim())}&category=$category&page=$page',
+    );
+    final res = await http.get(uri).timeout(const Duration(seconds: 25));
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception('HTTP ${res.statusCode} dari Dorar API');
+  }
+
   static List<List<String>> _parseCsv(String input) {
     final rows = <List<String>>[];
     var currentRow = <String>[];

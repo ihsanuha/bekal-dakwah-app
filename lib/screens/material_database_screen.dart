@@ -9,6 +9,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../widgets/home_action_button.dart';
 import 'material_editor_screen.dart';
 
 class MaterialDatabaseScreen extends StatefulWidget {
@@ -367,6 +368,7 @@ class _MaterialDatabaseScreenState extends State<MaterialDatabaseScreen> {
               tooltip: 'Upload File (PDF, DOCX, dll.)',
               onPressed: _uploadFiles,
             ),
+            const HomeActionButton(),
           ],
         ),
         body: Column(

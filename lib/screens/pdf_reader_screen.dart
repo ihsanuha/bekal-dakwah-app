@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../widgets/home_action_button.dart';
 
 class PdfReaderScreen extends StatefulWidget {
   final String filePath;
@@ -107,6 +108,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
             tooltip: 'Lompat ke Halaman',
             onPressed: _totalPages > 0 ? _showJumpToPage : null,
           ),
+          const HomeActionButton(),
         ],
       ),
       body: Column(

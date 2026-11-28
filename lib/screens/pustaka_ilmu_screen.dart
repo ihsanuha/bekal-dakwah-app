@@ -8,6 +8,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../widgets/home_action_button.dart';
 import 'pdf_reader_screen.dart';
 
 class PustakaIlmuScreen extends StatefulWidget {
@@ -314,6 +315,7 @@ class _PustakaIlmuScreenState extends State<PustakaIlmuScreen> {
               tooltip: 'Upload PDF',
               onPressed: _uploadPdfs,
             ),
+            const HomeActionButton(),
           ],
         ),
         body: Column(

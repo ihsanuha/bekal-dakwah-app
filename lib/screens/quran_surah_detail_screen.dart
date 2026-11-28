@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../services/quran_db_service.dart';
 import '../widgets/ayah_action_sheet.dart';
+import '../widgets/home_action_button.dart';
 import 'ai_chat_screen.dart';
 import 'quran_mushaf_screen.dart';
 
@@ -224,6 +225,7 @@ class _QuranSurahDetailScreenState extends State<QuranSurahDetailScreen> {
             tooltip: 'Perbesar huruf Arab',
             onPressed: () => setState(() => _arabicFontSize = (_arabicFontSize + 2).clamp(18.0, 38.0)),
           ),
+          const HomeActionButton(),
         ],
       ),
       body: _isLoading

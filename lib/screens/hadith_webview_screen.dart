@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import '../widgets/home_action_button.dart';
 
 class HadithWebViewScreen extends StatefulWidget {
   final String url;
@@ -95,6 +96,7 @@ class _HadithWebViewScreenState extends State<HadithWebViewScreen> {
                 }
               },
             ),
+            const HomeActionButton(),
           ],
         ),
         body: Column(

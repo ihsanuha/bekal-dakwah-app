@@ -8,6 +8,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../widgets/home_action_button.dart';
 import 'pdf_reader_screen.dart';
 
 class IslamHouseScreen extends StatefulWidget {
@@ -289,6 +290,7 @@ class _IslamHouseScreenState extends State<IslamHouseScreen> with SingleTickerPr
               style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0D7377)),
             ),
           ),
+          const HomeActionButton(),
         ],
         bottom: TabBar(
           controller: _tabController,

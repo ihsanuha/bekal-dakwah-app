@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import '../widgets/home_action_button.dart';
 import 'hadith_webview_screen.dart';
 
 class MutiaraSalafScreen extends StatefulWidget {
@@ -169,6 +170,7 @@ class _MutiaraSalafScreenState extends State<MutiaraSalafScreen> {
             tooltip: 'Perbarui dari Sheet',
             onPressed: _loadData,
           ),
+          const HomeActionButton(),
         ],
       ),
       body: Column(

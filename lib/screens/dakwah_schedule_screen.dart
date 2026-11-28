@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/notification_service.dart';
+import '../widgets/home_action_button.dart';
 
 class DakwahScheduleScreen extends StatefulWidget {
   const DakwahScheduleScreen({super.key});
@@ -478,6 +479,7 @@ class _DakwahScheduleScreenState extends State<DakwahScheduleScreen> {
               });
             },
           ),
+          const HomeActionButton(),
         ],
       ),
       body: _isLoading

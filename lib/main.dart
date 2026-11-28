@@ -18,6 +18,7 @@ import 'screens/islamhouse_screen.dart';
 import 'screens/portal_hub_screen.dart';
 import 'screens/mutiara_salaf_screen.dart';
 import 'screens/pustaka_ilmu_screen.dart';
+import 'screens/dorar_screen.dart';
 import 'services/api_service.dart';
 import 'services/notification_service.dart';
 
@@ -256,7 +257,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     '• Konsultasi Syariah (konsultasisyariah.com)\n'
                     '• Doa & Dzikir Shahih (Hisnul Muslim & Dzikir Pagi Petang)\n'
                     '• Fatwa IslamWeb, IslamHouse & Bekal Islam\n'
-                    '• Portal Riset: Tafsir.app, Tafsir.one, Takw.in, Hifdh.app, Bahith.app, Sunnah.one',
+                    '• Portal Riset: Tafsir.app, Tafsir.one, Takw.in, Hifdh.app, Bahith.app, Sunnah.one\n'
+                    '• Ensiklopedia Ad-Durar As-Saniyyah (dorar.net)',
                     style: TextStyle(fontSize: 13, height: 1.5),
                   ),
                   actions: [
@@ -520,6 +522,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 }),
                 _buildMenuCard(LucideIcons.bookOpenCheck, 'Pustaka\nIlmu (PDF)', Colors.teal[800]!, () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const PustakaIlmuScreen()));
+                }),
+                _buildMenuCard(LucideIcons.searchCheck, 'Ensiklopedia\nDorar', const Color(0xFF0D7377), () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const DorarEncyclopediaScreen()));
                 }),
               ],
             ),

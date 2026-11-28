@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/quran_db_service.dart';
+import '../widgets/home_action_button.dart';
 import 'quran_mushaf_screen.dart';
 import 'quran_surah_detail_screen.dart';
 
@@ -260,6 +261,7 @@ class _QuranListScreenState extends State<QuranListScreen> with SingleTickerProv
             tooltip: 'Unduh Mushaf Madani Offline (604 Hal)',
             onPressed: _showMushafDownloadManager,
           ),
+          const HomeActionButton(),
         ],
       ),
       body: Column(

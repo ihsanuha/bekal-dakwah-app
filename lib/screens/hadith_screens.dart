@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../widgets/home_action_button.dart';
 import '../services/api_service.dart';
 import 'ai_chat_screen.dart';
 import 'hadith_webview_screen.dart';
@@ -226,6 +227,7 @@ class _HadithSearchScreenState extends State<HadithSearchScreen> with SingleTick
             tooltip: 'Buka Halaman Lengkap di hdith.com',
             onPressed: _openFullWebSearch,
           ),
+          const HomeActionButton(),
         ],
       ),
       body: Column(

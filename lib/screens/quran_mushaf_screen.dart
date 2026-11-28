@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/quran_db_service.dart';
 import '../widgets/ayah_action_sheet.dart';
+import '../widgets/home_action_button.dart';
 import 'quran_surah_detail_screen.dart';
 
 class QuranMushafScreen extends StatefulWidget {
@@ -171,6 +172,7 @@ class _QuranMushafScreenState extends State<QuranMushafScreen> {
                   tooltip: 'Buka Mode Daftar & Terjemah',
                   onPressed: _switchToListMode,
                 ),
+                const HomeActionButton(),
               ],
             )
           : null,

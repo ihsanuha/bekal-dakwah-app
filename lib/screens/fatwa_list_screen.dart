@@ -12,6 +12,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import '../widgets/home_action_button.dart';
 import 'ai_chat_screen.dart';
 import 'pdf_reader_screen.dart';
 
@@ -229,6 +230,7 @@ class _FatwaListScreenState extends State<FatwaListScreen> with SingleTickerProv
               }
             },
           ),
+          const HomeActionButton(),
         ],
         bottom: TabBar(
           controller: _tabController,

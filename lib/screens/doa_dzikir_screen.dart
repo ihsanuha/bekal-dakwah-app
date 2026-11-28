@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../widgets/home_action_button.dart';
 
 class DoaDzikirScreen extends StatefulWidget {
   const DoaDzikirScreen({super.key});
@@ -130,6 +131,7 @@ class _DoaDzikirScreenState extends State<DoaDzikirScreen> with SingleTickerProv
             tooltip: 'Reset Semua Hitungan Dzikir',
             onPressed: _resetAllCounters,
           ),
+          const HomeActionButton(),
         ],
         bottom: TabBar(
           controller: _tabController,

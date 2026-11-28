@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../services/api_service.dart';
+import '../widgets/home_action_button.dart';
 import 'ai_chat_screen.dart';
 import 'hadith_webview_screen.dart';
 
@@ -105,6 +106,7 @@ class _TurathSearchScreenState extends State<TurathSearchScreen> {
             tooltip: 'Buka app.turath.io',
             onPressed: _openWebTurath,
           ),
+          const HomeActionButton(),
         ],
       ),
       body: Column(
